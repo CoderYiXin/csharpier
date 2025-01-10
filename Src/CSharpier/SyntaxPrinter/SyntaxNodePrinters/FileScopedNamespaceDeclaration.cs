@@ -2,7 +2,7 @@ namespace CSharpier.SyntaxPrinter.SyntaxNodePrinters;
 
 internal static class FileScopedNamespaceDeclaration
 {
-    public static Doc Print(FileScopedNamespaceDeclarationSyntax node, FormattingContext context)
+    public static Doc Print(FileScopedNamespaceDeclarationSyntax node, PrintingContext context)
     {
         var docs = new List<Doc>
         {
@@ -13,7 +13,7 @@ internal static class FileScopedNamespaceDeclaration
             Node.Print(node.Name, context),
             Token.Print(node.SemicolonToken, context),
             Doc.HardLine,
-            Doc.HardLine
+            Doc.HardLine,
         };
 
         NamespaceLikePrinter.Print(node, docs, context);

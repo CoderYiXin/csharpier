@@ -43,12 +43,19 @@ export default function Home() {
                         <li>It is fast.</li>
                         <li>Provides a single option to debate - width</li>
                         <li>Integrates with the major c# IDEs</li>
-                        <li>Works with c# &lt;= 11</li>
+                        <li>Works with c# &lt;= 12</li>
                         <li>Supports validating the changes it makes.</li>
                     </ul>
                 </div>
-                <div class="codeContainer">
-                    <div class="codeExample" />
+                <div className="codeContainer">
+                    <div className="codeExample" />
+                </div>
+                <div className="sponsor">
+                    <h2>Sponsors</h2>
+                    Special thanks to the <a href="https://github.com/aws/dotnet-foss">.NET on AWS Open Source Software Fund</a> for sponsoring the ongoing development CSharpier.
+                    <div>
+                        <a href="https://github.com/aws/dotnet-foss"><img src="/img/aws.png" alt="aws logo" /></a>
+                    </div>
                 </div>
             </main>
         </Layout>

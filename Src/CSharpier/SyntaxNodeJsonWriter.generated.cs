@@ -15,6 +15,7 @@ namespace CSharpier
             if (syntaxNode is AccessorDeclarationSyntax) WriteAccessorDeclarationSyntax(builder, syntaxNode as AccessorDeclarationSyntax);
             if (syntaxNode is AccessorListSyntax) WriteAccessorListSyntax(builder, syntaxNode as AccessorListSyntax);
             if (syntaxNode is AliasQualifiedNameSyntax) WriteAliasQualifiedNameSyntax(builder, syntaxNode as AliasQualifiedNameSyntax);
+            if (syntaxNode is AllowsConstraintClauseSyntax) WriteAllowsConstraintClauseSyntax(builder, syntaxNode as AllowsConstraintClauseSyntax);
             if (syntaxNode is AnonymousMethodExpressionSyntax) WriteAnonymousMethodExpressionSyntax(builder, syntaxNode as AnonymousMethodExpressionSyntax);
             if (syntaxNode is AnonymousObjectCreationExpressionSyntax) WriteAnonymousObjectCreationExpressionSyntax(builder, syntaxNode as AnonymousObjectCreationExpressionSyntax);
             if (syntaxNode is AnonymousObjectMemberDeclaratorSyntax) WriteAnonymousObjectMemberDeclaratorSyntax(builder, syntaxNode as AnonymousObjectMemberDeclaratorSyntax);
@@ -50,6 +51,7 @@ namespace CSharpier
             if (syntaxNode is CheckedStatementSyntax) WriteCheckedStatementSyntax(builder, syntaxNode as CheckedStatementSyntax);
             if (syntaxNode is ClassDeclarationSyntax) WriteClassDeclarationSyntax(builder, syntaxNode as ClassDeclarationSyntax);
             if (syntaxNode is ClassOrStructConstraintSyntax) WriteClassOrStructConstraintSyntax(builder, syntaxNode as ClassOrStructConstraintSyntax);
+            if (syntaxNode is CollectionExpressionSyntax) WriteCollectionExpressionSyntax(builder, syntaxNode as CollectionExpressionSyntax);
             if (syntaxNode is CompilationUnitSyntax) WriteCompilationUnitSyntax(builder, syntaxNode as CompilationUnitSyntax);
             if (syntaxNode is ConditionalAccessExpressionSyntax) WriteConditionalAccessExpressionSyntax(builder, syntaxNode as ConditionalAccessExpressionSyntax);
             if (syntaxNode is ConditionalExpressionSyntax) WriteConditionalExpressionSyntax(builder, syntaxNode as ConditionalExpressionSyntax);
@@ -91,6 +93,7 @@ namespace CSharpier
             if (syntaxNode is EventFieldDeclarationSyntax) WriteEventFieldDeclarationSyntax(builder, syntaxNode as EventFieldDeclarationSyntax);
             if (syntaxNode is ExplicitInterfaceSpecifierSyntax) WriteExplicitInterfaceSpecifierSyntax(builder, syntaxNode as ExplicitInterfaceSpecifierSyntax);
             if (syntaxNode is ExpressionColonSyntax) WriteExpressionColonSyntax(builder, syntaxNode as ExpressionColonSyntax);
+            if (syntaxNode is ExpressionElementSyntax) WriteExpressionElementSyntax(builder, syntaxNode as ExpressionElementSyntax);
             if (syntaxNode is ExpressionStatementSyntax) WriteExpressionStatementSyntax(builder, syntaxNode as ExpressionStatementSyntax);
             if (syntaxNode is ExternAliasDirectiveSyntax) WriteExternAliasDirectiveSyntax(builder, syntaxNode as ExternAliasDirectiveSyntax);
             if (syntaxNode is FieldDeclarationSyntax) WriteFieldDeclarationSyntax(builder, syntaxNode as FieldDeclarationSyntax);
@@ -186,6 +189,7 @@ namespace CSharpier
             if (syntaxNode is RecursivePatternSyntax) WriteRecursivePatternSyntax(builder, syntaxNode as RecursivePatternSyntax);
             if (syntaxNode is ReferenceDirectiveTriviaSyntax) WriteReferenceDirectiveTriviaSyntax(builder, syntaxNode as ReferenceDirectiveTriviaSyntax);
             if (syntaxNode is RefExpressionSyntax) WriteRefExpressionSyntax(builder, syntaxNode as RefExpressionSyntax);
+            if (syntaxNode is RefStructConstraintSyntax) WriteRefStructConstraintSyntax(builder, syntaxNode as RefStructConstraintSyntax);
             if (syntaxNode is RefTypeExpressionSyntax) WriteRefTypeExpressionSyntax(builder, syntaxNode as RefTypeExpressionSyntax);
             if (syntaxNode is RefTypeSyntax) WriteRefTypeSyntax(builder, syntaxNode as RefTypeSyntax);
             if (syntaxNode is RefValueExpressionSyntax) WriteRefValueExpressionSyntax(builder, syntaxNode as RefValueExpressionSyntax);
@@ -201,6 +205,7 @@ namespace CSharpier
             if (syntaxNode is SizeOfExpressionSyntax) WriteSizeOfExpressionSyntax(builder, syntaxNode as SizeOfExpressionSyntax);
             if (syntaxNode is SkippedTokensTriviaSyntax) WriteSkippedTokensTriviaSyntax(builder, syntaxNode as SkippedTokensTriviaSyntax);
             if (syntaxNode is SlicePatternSyntax) WriteSlicePatternSyntax(builder, syntaxNode as SlicePatternSyntax);
+            if (syntaxNode is SpreadElementSyntax) WriteSpreadElementSyntax(builder, syntaxNode as SpreadElementSyntax);
             if (syntaxNode is StackAllocArrayCreationExpressionSyntax) WriteStackAllocArrayCreationExpressionSyntax(builder, syntaxNode as StackAllocArrayCreationExpressionSyntax);
             if (syntaxNode is StructDeclarationSyntax) WriteStructDeclarationSyntax(builder, syntaxNode as StructDeclarationSyntax);
             if (syntaxNode is SubpatternSyntax) WriteSubpatternSyntax(builder, syntaxNode as SubpatternSyntax);
@@ -369,6 +374,32 @@ namespace CSharpier
                 WriteSyntaxNode(nameBuilder, syntaxNode.Name);
                 properties.Add($"\"name\":{nameBuilder.ToString()}");
             }
+            builder.Append(string.Join(",", properties.Where(o => o != null)));
+            builder.Append("}");
+        }
+        public static void WriteAllowsConstraintClauseSyntax(StringBuilder builder, AllowsConstraintClauseSyntax syntaxNode)
+        {
+            builder.Append("{");
+            var properties = new List<string>();
+            properties.Add($"\"nodeType\":\"{GetNodeType(syntaxNode.GetType())}\"");
+            properties.Add($"\"kind\":\"{syntaxNode.Kind().ToString()}\"");
+            if (syntaxNode.AllowsKeyword != default(SyntaxToken))
+            {
+                var allowsKeywordBuilder = new StringBuilder();
+                WriteSyntaxToken(allowsKeywordBuilder, syntaxNode.AllowsKeyword);
+                properties.Add($"\"allowsKeyword\":{allowsKeywordBuilder.ToString()}");
+            }
+            var constraints = new List<string>();
+            foreach(var node in syntaxNode.Constraints)
+            {
+                var innerBuilder = new StringBuilder();
+                WriteSyntaxNode(innerBuilder, node);
+                constraints.Add(innerBuilder.ToString());
+            }
+            properties.Add($"\"constraints\":[{string.Join(",", constraints)}]");
+            properties.Add(WriteBoolean("hasLeadingTrivia", syntaxNode.HasLeadingTrivia));
+            properties.Add(WriteBoolean("hasTrailingTrivia", syntaxNode.HasTrailingTrivia));
+            properties.Add(WriteBoolean("isMissing", syntaxNode.IsMissing));
             builder.Append(string.Join(",", properties.Where(o => o != null)));
             builder.Append("}");
         }
@@ -1550,6 +1581,38 @@ namespace CSharpier
             builder.Append(string.Join(",", properties.Where(o => o != null)));
             builder.Append("}");
         }
+        public static void WriteCollectionExpressionSyntax(StringBuilder builder, CollectionExpressionSyntax syntaxNode)
+        {
+            builder.Append("{");
+            var properties = new List<string>();
+            properties.Add($"\"nodeType\":\"{GetNodeType(syntaxNode.GetType())}\"");
+            properties.Add($"\"kind\":\"{syntaxNode.Kind().ToString()}\"");
+            if (syntaxNode.CloseBracketToken != default(SyntaxToken))
+            {
+                var closeBracketTokenBuilder = new StringBuilder();
+                WriteSyntaxToken(closeBracketTokenBuilder, syntaxNode.CloseBracketToken);
+                properties.Add($"\"closeBracketToken\":{closeBracketTokenBuilder.ToString()}");
+            }
+            var elements = new List<string>();
+            foreach(var node in syntaxNode.Elements)
+            {
+                var innerBuilder = new StringBuilder();
+                WriteSyntaxNode(innerBuilder, node);
+                elements.Add(innerBuilder.ToString());
+            }
+            properties.Add($"\"elements\":[{string.Join(",", elements)}]");
+            properties.Add(WriteBoolean("hasLeadingTrivia", syntaxNode.HasLeadingTrivia));
+            properties.Add(WriteBoolean("hasTrailingTrivia", syntaxNode.HasTrailingTrivia));
+            properties.Add(WriteBoolean("isMissing", syntaxNode.IsMissing));
+            if (syntaxNode.OpenBracketToken != default(SyntaxToken))
+            {
+                var openBracketTokenBuilder = new StringBuilder();
+                WriteSyntaxToken(openBracketTokenBuilder, syntaxNode.OpenBracketToken);
+                properties.Add($"\"openBracketToken\":{openBracketTokenBuilder.ToString()}");
+            }
+            builder.Append(string.Join(",", properties.Where(o => o != null)));
+            builder.Append("}");
+        }
         public static void WriteCompilationUnitSyntax(StringBuilder builder, CompilationUnitSyntax syntaxNode)
         {
             builder.Append("{");
@@ -2043,6 +2106,12 @@ namespace CSharpier
             properties.Add(WriteBoolean("hasLeadingTrivia", syntaxNode.HasLeadingTrivia));
             properties.Add(WriteBoolean("hasTrailingTrivia", syntaxNode.HasTrailingTrivia));
             properties.Add(WriteBoolean("isMissing", syntaxNode.IsMissing));
+            if (syntaxNode.ReadOnlyKeyword != default(SyntaxToken))
+            {
+                var readOnlyKeywordBuilder = new StringBuilder();
+                WriteSyntaxToken(readOnlyKeywordBuilder, syntaxNode.ReadOnlyKeyword);
+                properties.Add($"\"readOnlyKeyword\":{readOnlyKeywordBuilder.ToString()}");
+            }
             if (syntaxNode.RefKindKeyword != default(SyntaxToken))
             {
                 var refKindKeywordBuilder = new StringBuilder();
@@ -3062,6 +3131,24 @@ namespace CSharpier
                 WriteSyntaxToken(colonTokenBuilder, syntaxNode.ColonToken);
                 properties.Add($"\"colonToken\":{colonTokenBuilder.ToString()}");
             }
+            if (syntaxNode.Expression != default(ExpressionSyntax))
+            {
+                var expressionBuilder = new StringBuilder();
+                WriteSyntaxNode(expressionBuilder, syntaxNode.Expression);
+                properties.Add($"\"expression\":{expressionBuilder.ToString()}");
+            }
+            properties.Add(WriteBoolean("hasLeadingTrivia", syntaxNode.HasLeadingTrivia));
+            properties.Add(WriteBoolean("hasTrailingTrivia", syntaxNode.HasTrailingTrivia));
+            properties.Add(WriteBoolean("isMissing", syntaxNode.IsMissing));
+            builder.Append(string.Join(",", properties.Where(o => o != null)));
+            builder.Append("}");
+        }
+        public static void WriteExpressionElementSyntax(StringBuilder builder, ExpressionElementSyntax syntaxNode)
+        {
+            builder.Append("{");
+            var properties = new List<string>();
+            properties.Add($"\"nodeType\":\"{GetNodeType(syntaxNode.GetType())}\"");
+            properties.Add($"\"kind\":\"{syntaxNode.Kind().ToString()}\"");
             if (syntaxNode.Expression != default(ExpressionSyntax))
             {
                 var expressionBuilder = new StringBuilder();
@@ -6887,6 +6974,30 @@ namespace CSharpier
             builder.Append(string.Join(",", properties.Where(o => o != null)));
             builder.Append("}");
         }
+        public static void WriteRefStructConstraintSyntax(StringBuilder builder, RefStructConstraintSyntax syntaxNode)
+        {
+            builder.Append("{");
+            var properties = new List<string>();
+            properties.Add($"\"nodeType\":\"{GetNodeType(syntaxNode.GetType())}\"");
+            properties.Add($"\"kind\":\"{syntaxNode.Kind().ToString()}\"");
+            properties.Add(WriteBoolean("hasLeadingTrivia", syntaxNode.HasLeadingTrivia));
+            properties.Add(WriteBoolean("hasTrailingTrivia", syntaxNode.HasTrailingTrivia));
+            properties.Add(WriteBoolean("isMissing", syntaxNode.IsMissing));
+            if (syntaxNode.RefKeyword != default(SyntaxToken))
+            {
+                var refKeywordBuilder = new StringBuilder();
+                WriteSyntaxToken(refKeywordBuilder, syntaxNode.RefKeyword);
+                properties.Add($"\"refKeyword\":{refKeywordBuilder.ToString()}");
+            }
+            if (syntaxNode.StructKeyword != default(SyntaxToken))
+            {
+                var structKeywordBuilder = new StringBuilder();
+                WriteSyntaxToken(structKeywordBuilder, syntaxNode.StructKeyword);
+                properties.Add($"\"structKeyword\":{structKeywordBuilder.ToString()}");
+            }
+            builder.Append(string.Join(",", properties.Where(o => o != null)));
+            builder.Append("}");
+        }
         public static void WriteRefTypeExpressionSyntax(StringBuilder builder, RefTypeExpressionSyntax syntaxNode)
         {
             builder.Append("{");
@@ -7371,6 +7482,30 @@ namespace CSharpier
                 var patternBuilder = new StringBuilder();
                 WriteSyntaxNode(patternBuilder, syntaxNode.Pattern);
                 properties.Add($"\"pattern\":{patternBuilder.ToString()}");
+            }
+            builder.Append(string.Join(",", properties.Where(o => o != null)));
+            builder.Append("}");
+        }
+        public static void WriteSpreadElementSyntax(StringBuilder builder, SpreadElementSyntax syntaxNode)
+        {
+            builder.Append("{");
+            var properties = new List<string>();
+            properties.Add($"\"nodeType\":\"{GetNodeType(syntaxNode.GetType())}\"");
+            properties.Add($"\"kind\":\"{syntaxNode.Kind().ToString()}\"");
+            if (syntaxNode.Expression != default(ExpressionSyntax))
+            {
+                var expressionBuilder = new StringBuilder();
+                WriteSyntaxNode(expressionBuilder, syntaxNode.Expression);
+                properties.Add($"\"expression\":{expressionBuilder.ToString()}");
+            }
+            properties.Add(WriteBoolean("hasLeadingTrivia", syntaxNode.HasLeadingTrivia));
+            properties.Add(WriteBoolean("hasTrailingTrivia", syntaxNode.HasTrailingTrivia));
+            properties.Add(WriteBoolean("isMissing", syntaxNode.IsMissing));
+            if (syntaxNode.OperatorToken != default(SyntaxToken))
+            {
+                var operatorTokenBuilder = new StringBuilder();
+                WriteSyntaxToken(operatorTokenBuilder, syntaxNode.OperatorToken);
+                properties.Add($"\"operatorToken\":{operatorTokenBuilder.ToString()}");
             }
             builder.Append(string.Join(",", properties.Where(o => o != null)));
             builder.Append("}");

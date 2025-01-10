@@ -1,8 +1,10 @@
 # CSharpier Formatter for Visual Studio Code
 
-[CSharpier](https://github.com/belav/csharpier) is an opinionated code formatter for c#.
-It uses Roslyn to parse your code and re-prints it using its own rules.
-The printing process was ported from [prettier](https://prettier.io) but has evolved over time.
+This extension makes use of the dotnet tool [CSharpier](https://github.com/belav/csharpier) to format your code and is versioned independently.
+
+CSharpier is an opinionated code formatter for c# and xml. \
+It provides very few options and provides a deterministic way to enforce formatting of your code. \
+The printing process was ported from [prettier](https://prettier.io) but has evolved over time. \
 
 ## Installation
 
@@ -12,6 +14,31 @@ Can also be installed in VS Code: Launch VS Code Quick Open (Ctrl+P), paste the 
 
 ```
 ext install csharpier.csharpier-vscode
+```
+
+## CSharpier Version
+The extension determines which version of csharpier is needed to format a given file by looking for a dotnet manifest file. If one is not found it looks for a globally installed version of CSharpier.
+
+## XML Formatting
+Formatting XML is only available using CSharpier >= 1.0.0
+
+## Dotnet Commands
+The extension makes use of `dotnet` commands and uses the following logic to locate `dotnet`.
+- If `dotnet.dotnetPath` is set try using that to find `dotnet`
+- If `omnisharp.dotNetCliPaths` is set try using that to find `dotnet`
+- Try running `dotnet --info` to see if `dotnet` is on the PATH
+- For non-windows - Try running `sh -c "dotnet --info"` to see if `dotnet` is on the PATH
+
+## Default Formatter
+To ensure that CSharpier is used to format files, be sure to set it as the default formatter.
+
+```json
+  "[csharp]": {
+    "editor.defaultFormatter": "csharpier.csharpier-vscode"
+  },
+  "[xml]": {
+    "editor.defaultFormatter": "csharpier.csharpier-vscode"
+  },
 ```
 
 ## Usage
@@ -36,6 +63,9 @@ You can turn on format-on-save on a per-language basis by scoping the setting:
 // Enable per-language
 "[csharp]": {
     "editor.formatOnSave": true
+},
+"[xml]": {
+    "editor.formatOnSave": true
 }
 ```
 
@@ -50,17 +80,4 @@ dotnet new tool-manifest
 dotnet tool install csharpier
 
 # rebuild container image
-```
-
-## Limitations
-
-Format Selection is not supported.
-
-Only `"editor.formatOnSaveMode" : "file"` is supported. If using other modes, you can set `file` by scoping the setting:
-```json
-"editor.formatOnSave": true,
-"editor.formatOnSaveMode": "modifications"
-"[csharp]": {
-    "editor.formatOnSaveMode": "file"
-}
 ```

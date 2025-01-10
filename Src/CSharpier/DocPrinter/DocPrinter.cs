@@ -14,7 +14,7 @@ internal class DocPrinter
     protected readonly string EndOfLine;
     protected readonly PrinterOptions PrinterOptions;
     protected readonly Indenter Indenter;
-    protected Stack<Indent> RegionIndents = new();
+    protected readonly Stack<Indent> RegionIndents = new();
 
     protected DocPrinter(Doc doc, PrinterOptions printerOptions, string endOfLine)
     {
@@ -56,7 +56,7 @@ internal class DocPrinter
         var trimmed = 0;
         for (; trimmed < this.Output.Length; trimmed++)
         {
-            if (this.Output[^(trimmed + 1)] != '\r' && this.Output[^(trimmed + 1)] != '\n')
+            if (this.Output[^(trimmed + 1)] is not '\r' and not '\n')
             {
                 break;
             }
@@ -156,8 +156,17 @@ internal class DocPrinter
         {
             if (region.IsEnd)
             {
-                var regionIndent = this.RegionIndents.Pop();
-                this.Output.Append(regionIndent.Value);
+                // in the case where regions are combined with ignored ranges, the start region
+                // ends up printing inside the unformatted nodes, so we don't have a matching
+                // start region to go with this end region
+                if (this.RegionIndents.TryPop(out var regionIndent))
+                {
+                    this.Output.Append(regionIndent.Value);
+                }
+                else
+                {
+                    this.Output.Append(indent.Value);
+                }
             }
             else
             {
@@ -179,27 +188,8 @@ internal class DocPrinter
 
     private void AppendComment(LeadingComment leadingComment, Indent indent)
     {
-        int CalculateIndentLength(string line)
-        {
-            var result = 0;
-            foreach (var character in line)
-            {
-                if (character == ' ')
-                {
-                    result += 1;
-                }
-                else if (character == '\t')
-                {
-                    result += this.PrinterOptions.TabWidth;
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            return result;
-        }
+        int CalculateIndentLength(string line) =>
+            line.CalculateCurrentLeadingIndentation(this.PrinterOptions.IndentSize);
 
         var stringReader = new StringReader(leadingComment.Comment);
         var line = stringReader.ReadLine();
@@ -230,6 +220,12 @@ internal class DocPrinter
                     {
                         this.Output.Append(indent.Value);
                         spacesToAppend -= indentLength;
+                    }
+
+                    while (spacesToAppend > 0 && spacesToAppend >= this.PrinterOptions.IndentSize)
+                    {
+                        this.Output.Append('\t');
+                        spacesToAppend -= this.PrinterOptions.IndentSize;
                     }
                 }
                 if (spacesToAppend > 0)
@@ -315,7 +311,11 @@ internal class DocPrinter
         {
             if (!this.SkipNextNewLine || !this.NewLineNextStringValue)
             {
-                this.Output.TrimTrailingWhitespace();
+                if (line is not HardLineNoTrim)
+                {
+                    this.Output.TrimTrailingWhitespace();
+                }
+
                 this.Output.Append(this.EndOfLine).Append(indent.Value);
                 this.CurrentWidth = indent.Length;
             }
@@ -405,5 +405,5 @@ internal enum PrintMode
 {
     Flat,
     Break,
-    ForceFlat
+    ForceFlat,
 }

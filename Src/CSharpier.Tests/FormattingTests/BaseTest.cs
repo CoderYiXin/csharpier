@@ -2,8 +2,10 @@ using System.IO.Abstractions;
 using System.Text;
 using CSharpier.Cli;
 using CSharpier.SyntaxPrinter;
+using CSharpier.Utilities;
 using DiffEngine;
 using FluentAssertions;
+using Microsoft.CodeAnalysis;
 
 namespace CSharpier.Tests.FormattingTests;
 
@@ -26,10 +28,10 @@ public class BaseTest
             CancellationToken.None
         );
 
-        // TODO xml use proper formatter
         var result = await CSharpFormatter.FormatAsync(
             fileReaderResult.FileContents,
             new PrinterOptions { Width = PrinterOptions.WidthUsedByTests, UseTabs = useTabs },
+            fileExtension.EqualsIgnoreCase("csx") ? SourceCodeKind.Script : SourceCodeKind.Regular,
             CancellationToken.None
         );
 
@@ -59,6 +61,9 @@ public class BaseTest
             expectedCode,
             normalizedCode,
             false,
+            false,
+            false,
+            SourceCodeKind.Regular,
             CancellationToken.None
         );
 

@@ -1,10 +1,10 @@
-namespace CSharpier.Tests;
-
 using System.IO.Abstractions.TestingHelpers;
 using CSharpier.Cli.Options;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
+
+namespace CSharpier.Tests;
 
 [TestFixture]
 [Parallelizable(ParallelScope.Fixtures)]
@@ -22,12 +22,22 @@ public class OptionsProviderTests
     }
 
     [Test]
-    public async Task Should_Return_Default_Options_With_No_File()
+    public async Task Should_Return_Default_Options_With_No_File_And_Known_Extension()
     {
         var context = new TestContext();
         var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cs");
 
         ShouldHaveDefaultOptions(result);
+    }
+
+    [Test]
+    public async Task Should_Return_Default_Options_With_No_File_And_Unknown_Extension()
+    {
+        var context = new TestContext();
+        var result = async () =>
+            await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cst");
+
+        await result.Should().ThrowAsync<Exception>();
     }
 
     [TestCase(".csharpierrc")]
@@ -145,7 +155,7 @@ endOfLine: crlf
 
         var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cs");
 
-        result.TabWidth.Should().Be(10);
+        result.IndentSize.Should().Be(10);
     }
 
     [Test]
@@ -178,7 +188,7 @@ endOfLine: crlf
 
         var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cs");
 
-        result.TabWidth.Should().Be(10);
+        result.IndentSize.Should().Be(10);
     }
 
     [Test]
@@ -190,6 +200,25 @@ endOfLine: crlf
         var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cs");
 
         result.UseTabs.Should().BeTrue();
+    }
+
+    [Test]
+    public async Task Should_Return_TabWidth_For_Override()
+    {
+        var context = new TestContext();
+        context.WhenAFileExists(
+            "c:/test/.csharpierrc",
+            """
+            overrides:
+                - files: "*.cst"
+                  formatter: "csharp"
+                  tabWidth: 2
+            """
+        );
+
+        var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cst");
+
+        result.IndentSize.Should().Be(2);
     }
 
     [Test]
@@ -210,7 +239,7 @@ end_of_line = crlf
         var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cs");
 
         result.UseTabs.Should().BeFalse();
-        result.TabWidth.Should().Be(2);
+        result.IndentSize.Should().Be(2);
         result.Width.Should().Be(10);
         result.EndOfLine.Should().Be(EndOfLine.CRLF);
     }
@@ -239,9 +268,64 @@ end_of_line = crlf
         var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cs");
 
         result.UseTabs.Should().BeFalse();
-        result.TabWidth.Should().Be(2);
+        result.IndentSize.Should().Be(2);
         result.Width.Should().Be(10);
         result.EndOfLine.Should().Be(EndOfLine.CRLF);
+    }
+
+    [Test]
+    public async Task Should_Support_EditorConfig_With_Duplicated_Sections()
+    {
+        var context = new TestContext();
+        context.WhenAFileExists(
+            "c:/test/.editorconfig",
+            @"
+[*]
+indent_size = 2
+
+[*]
+indent_size = 4
+"
+        );
+
+        var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cs");
+
+        result.IndentSize.Should().Be(4);
+    }
+
+    [Test]
+    public async Task Should_Support_EditorConfig_With_Duplicated_Rules()
+    {
+        var context = new TestContext();
+        context.WhenAFileExists(
+            "c:/test/.editorconfig",
+            @"
+[*]
+indent_size = 2
+indent_size = 4
+"
+        );
+
+        var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cs");
+
+        result.IndentSize.Should().Be(4);
+    }
+
+    [Test]
+    public async Task Should_Not_Fail_With_Bad_EditorConfig()
+    {
+        var context = new TestContext();
+        context.WhenAFileExists(
+            "c:/test/.editorconfig",
+            @"
+[*
+indent_size==
+"
+        );
+
+        var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cs");
+
+        result.IndentSize.Should().Be(4);
     }
 
     [TestCase("tab_width")]
@@ -261,7 +345,7 @@ end_of_line = crlf
         var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cs");
 
         result.UseTabs.Should().BeTrue();
-        result.TabWidth.Should().Be(2);
+        result.IndentSize.Should().Be(2);
     }
 
     [Test]
@@ -281,7 +365,7 @@ end_of_line = crlf
         var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cs");
 
         result.UseTabs.Should().BeTrue();
-        result.TabWidth.Should().Be(3);
+        result.IndentSize.Should().Be(3);
     }
 
     [Test]
@@ -299,7 +383,7 @@ end_of_line = crlf
 
         var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cs");
 
-        result.TabWidth.Should().Be(3);
+        result.IndentSize.Should().Be(3);
     }
 
     [Test]
@@ -327,7 +411,7 @@ end_of_line = crlf
             "c:/test/subfolder",
             "c:/test/subfolder/test.cs"
         );
-        result.TabWidth.Should().Be(1);
+        result.IndentSize.Should().Be(1);
         result.Width.Should().Be(10);
     }
 
@@ -355,7 +439,7 @@ end_of_line = crlf
             "c:/test/subfolder",
             "c:/test/subfolder/test.cs"
         );
-        result.TabWidth.Should().Be(4);
+        result.IndentSize.Should().Be(4);
     }
 
     [Test]
@@ -403,7 +487,63 @@ indent_size = 2
         );
 
         var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cs");
-        result.TabWidth.Should().Be(2);
+        result.IndentSize.Should().Be(2);
+    }
+
+    [Test]
+    public async Task Should_Support_EditorConfig_Tabs_With_Glob_Braces()
+    {
+        var context = new TestContext();
+        context.WhenAFileExists(
+            "c:/test/.editorconfig",
+            @"
+[*]
+indent_size = 1
+
+[*.{cs}]
+indent_size = 2
+"
+        );
+
+        var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cs");
+        result.IndentSize.Should().Be(2);
+    }
+
+    [Test]
+    public async Task Should_Support_EditorConfig_Tabs_With_Glob_Braces_Multiples()
+    {
+        var context = new TestContext();
+        context.WhenAFileExists(
+            "c:/test/.editorconfig",
+            @"
+[*]
+indent_size = 1
+
+[*.{csx,cs}]
+indent_size = 2
+"
+        );
+
+        var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cs");
+        result.IndentSize.Should().Be(2);
+    }
+
+    [Test]
+    public async Task Should_Return_IndentSize_For_Formatter_In_Editorconfig()
+    {
+        var context = new TestContext();
+        context.WhenAFileExists(
+            "c:/test/.editorconfig",
+            """
+            [*.cst]
+            indent_size = 2
+            csharpier_formatter = csharp
+            """
+        );
+
+        var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cst");
+
+        result.IndentSize.Should().Be(2);
     }
 
     [Test]
@@ -422,7 +562,7 @@ indent_size = 2
             "c:/test/subfolder",
             "c:/test/subfolder/test.cs"
         );
-        result.TabWidth.Should().Be(2);
+        result.IndentSize.Should().Be(2);
     }
 
     [Test]
@@ -442,11 +582,11 @@ indent_size = 2
             "c:/test/subfolder",
             "c:/test/test.cs"
         );
-        result.TabWidth.Should().Be(1);
+        result.IndentSize.Should().Be(1);
     }
 
     [Test]
-    public async Task Should_Prefer_Closer_EditorConfig()
+    public async Task Should_Not_Prefer_Closer_EditorConfig()
     {
         var context = new TestContext();
         context.WhenAFileExists(
@@ -462,7 +602,54 @@ indent_size = 2
             "c:/test",
             "c:/test/subfolder/test.cs"
         );
-        result.TabWidth.Should().Be(2);
+        result.IndentSize.Should().Be(1);
+    }
+
+    [Test]
+    public async Task Should_Ignore_Invalid_EditorConfig_Lines()
+    {
+        var context = new TestContext();
+        context.WhenAFileExists(
+            "c:/test/.editorconfig",
+            @"
+[*]
+indent_size = 2
+INVALID
+"
+        );
+
+        var result = await context.CreateProviderAndGetOptionsFor("c:/test", "c:/test/test.cs");
+
+        result.IndentSize.Should().Be(2);
+    }
+
+    [Test]
+    public async Task Should_Ignore_Ignored_EditorConfig()
+    {
+        var context = new TestContext();
+        context.WhenAFileExists(
+            "c:/test/subfolder/.editorconfig",
+            @"
+    [*]
+    indent_size = 2
+    "
+        );
+
+        context.WhenAFileExists(
+            "c:/test/.editorconfig",
+            @"
+    [*]
+    indent_size = 1
+    "
+        );
+
+        context.WhenAFileExists("c:/test/.csharpierignore", "/subfolder/.editorconfig");
+
+        var result = await context.CreateProviderAndGetOptionsFor(
+            "c:/test",
+            "c:/test/subfolder/test.cs"
+        );
+        result.IndentSize.Should().Be(1);
     }
 
     [Test]
@@ -482,13 +669,77 @@ indent_size = 2
             "c:/test",
             "c:/test/subfolder/test.cs"
         );
-        result.TabWidth.Should().Be(1);
+        result.IndentSize.Should().Be(1);
+    }
+
+    [Test]
+    public async Task Should_Not_Look_For_Subfolders_EditorConfig_When_Limited()
+    {
+        var context = new TestContext();
+        context.WhenAFileExists(
+            "c:/test/subfolder/.editorconfig",
+            @"
+    [*]
+    indent_size = 1
+    "
+        );
+
+        // this shouldn't happen in the real world, but validates we correctly limit
+        // the search to the top directory only
+        var result = await context.CreateProviderAndGetOptionsFor(
+            "c:/test/",
+            "c:/test/subfolder/test.cs",
+            limitEditorConfigSearch: true
+        );
+        result.IndentSize.Should().Be(4);
+    }
+
+    [Test]
+    public async Task Should_Not_Look_For_Subfolders_CSharpierRc_When_Limited()
+    {
+        var context = new TestContext();
+        context.WhenAFileExists(
+            "c:/test/subfolder/.csharpierrc",
+            @"
+    [*]
+    tabWidth: 1
+    "
+        );
+
+        // this shouldn't happen in the real world, but validates we correctly limit
+        // the search to the top directory only
+        var result = await context.CreateProviderAndGetOptionsFor(
+            "c:/test/",
+            "c:/test/subfolder/test.cs",
+            limitEditorConfigSearch: true
+        );
+        result.IndentSize.Should().Be(4);
+    }
+
+    [Test]
+    public async Task Should_Look_For_Subfolders_When_Limited()
+    {
+        var context = new TestContext();
+        context.WhenAFileExists(
+            "c:/test/.editorconfig",
+            @"
+    [*]
+    indent_size = 1
+    "
+        );
+
+        var result = await context.CreateProviderAndGetOptionsFor(
+            "c:/test/subfolder",
+            "c:/test/subfolder/test.cs",
+            limitEditorConfigSearch: true
+        );
+        result.IndentSize.Should().Be(1);
     }
 
     private static void ShouldHaveDefaultOptions(PrinterOptions printerOptions)
     {
         printerOptions.Width.Should().Be(100);
-        printerOptions.TabWidth.Should().Be(4);
+        printerOptions.IndentSize.Should().Be(4);
         printerOptions.UseTabs.Should().BeFalse();
         printerOptions.EndOfLine.Should().Be(EndOfLine.Auto);
     }
@@ -509,7 +760,8 @@ indent_size = 2
 
         public async Task<PrinterOptions> CreateProviderAndGetOptionsFor(
             string directoryName,
-            string filePath
+            string filePath,
+            bool limitEditorConfigSearch = false
         )
         {
             if (!OperatingSystem.IsWindows())
@@ -524,10 +776,18 @@ indent_size = 2
                 null,
                 this.fileSystem,
                 NullLogger.Instance,
-                CancellationToken.None
+                CancellationToken.None,
+                limitEditorConfigSearch
             );
 
-            return provider.GetPrinterOptionsFor(filePath);
+            var printerOptions = provider.GetPrinterOptionsFor(filePath);
+
+            if (printerOptions is null)
+            {
+                throw new Exception("PrinterOptions was null");
+            }
+
+            return printerOptions;
         }
     }
 }

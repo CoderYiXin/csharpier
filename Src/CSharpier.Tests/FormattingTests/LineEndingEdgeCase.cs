@@ -1,8 +1,8 @@
-namespace CSharpier.Tests.FormattingTests;
-
 using System.Text;
 using FluentAssertions;
 using NUnit.Framework;
+
+namespace CSharpier.Tests.FormattingTests;
 
 [TestFixture]
 internal class LineEndingEdgeCase
@@ -36,8 +36,8 @@ internal class LineEndingEdgeCase
             CancellationToken.None
         );
 
-        result.Code
-            .Should()
+        result
+            .Code.Should()
             .Be(unformattedCode.ReplaceLineEndings(endOfLine == EndOfLine.LF ? "\n" : "\r\n"));
     }
 }

@@ -2,11 +2,11 @@ namespace CSharpier.SyntaxPrinter.SyntaxNodePrinters;
 
 internal static class QueryBody
 {
-    public static Doc Print(QueryBodySyntax node, FormattingContext context)
+    public static Doc Print(QueryBodySyntax node, PrintingContext context)
     {
         var docs = new List<Doc>
         {
-            Doc.Join(Doc.Line, node.Clauses.Select(o => Node.Print(o, context)))
+            Doc.Join(Doc.Line, node.Clauses.Select(o => Node.Print(o, context))),
         };
         if (node.Clauses.Count > 0)
         {

@@ -1,5 +1,6 @@
 using System.Text;
 using FluentAssertions;
+using Microsoft.CodeAnalysis;
 using NUnit.Framework;
 
 namespace CSharpier.Tests.Samples;
@@ -40,6 +41,9 @@ public class Samples
             code,
             result.Code,
             false,
+            false,
+            false,
+            SourceCodeKind.Regular,
             CancellationToken.None
         );
 

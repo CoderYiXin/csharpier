@@ -2,6 +2,14 @@ import React, { useContext, useState } from "react";
 import { formatCode, setFormattedCodeEditor } from "./FormatCode";
 
 export const AppContext = React.createContext({
+    printWidth: 100,
+    setPrintWidth: (value: number) => {},
+    indentSize: 4,
+    setIndentSize: (value: number) => {},
+    useTabs: false,
+    setUseTabs: (value: boolean) => {},
+    parser: "CSharp",
+    setParser: (value: string) => {},
     showAst: false,
     setShowAst: (value: boolean) => {},
     showDoc: false,
@@ -32,6 +40,10 @@ export const useAppContext = () => useContext(AppContext);
 // I regret trying out this approach to managing state....
 export const useSetupAppContext = () => {
     const [doc, setDoc] = useState("");
+    const [printWidth, setPrintWidth] = useState(100);
+    const [indentSize, setIndentSize] = useState(4);
+    const [useTabs, setUseTabs] = useState(false);
+    const [parser, setParser] = useState("CSharp");
     const [showAst, setShowAst] = useState(getInitialShowAst());
     const [showDoc, setShowDoc] = useState(getInitialShowDoc());
     const [hideNull, setHideNull] = useState(getInitialHideNull());
@@ -43,6 +55,14 @@ export const useSetupAppContext = () => {
 
     return {
         doc,
+        printWidth,
+        setPrintWidth,
+        indentSize,
+        setIndentSize,
+        useTabs,
+        setUseTabs,
+        parser,
+        setParser,
         showAst,
         setShowAst: (value: boolean) => {
             window.sessionStorage.setItem("showAst", value.toString());
@@ -75,7 +95,18 @@ export const useSetupAppContext = () => {
         formatCode: async () => {
             setIsLoading(true);
 
-            const { syntaxTree, formattedCode, doc, hasErrors } = await formatCode(enteredCode);
+            const { syntaxTree, formattedCode, doc, hasErrors, syntaxValidation } = await formatCode(
+                enteredCode,
+                printWidth,
+                indentSize,
+                useTabs,
+                parser,
+            );
+
+            if (syntaxValidation) {
+                console.log(syntaxValidation);
+                console.log(new Date());
+            }
 
             setIsLoading(false);
             setSyntaxTree(syntaxTree);

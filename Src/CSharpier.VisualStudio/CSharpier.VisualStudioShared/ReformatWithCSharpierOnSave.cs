@@ -28,12 +28,11 @@ namespace CSharpier.VisualStudio
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             var dte = await package.GetServiceAsync(typeof(DTE)) as DTE;
-            new ReformatWithCSharpierOnSave(package, dte!);
+            _ = new ReformatWithCSharpierOnSave(package, dte!);
         }
 
         public int OnBeforeSave(uint docCookie)
         {
-            Logger.Instance.Debug("OnBeforeSave");
             var runOnSave =
                 CSharpierOptions.Instance.SolutionRunOnSave is true
                 || (
@@ -43,7 +42,6 @@ namespace CSharpier.VisualStudio
 
             if (!runOnSave)
             {
-                Logger.Instance.Debug("No RunOnSave");
                 return VSConstants.S_OK;
             }
 
@@ -51,13 +49,10 @@ namespace CSharpier.VisualStudio
 
             if (document == null)
             {
-                Logger.Instance.Debug("No Document");
                 return VSConstants.S_OK;
             }
 
-            Logger.Instance.Debug("Before format");
             this.formattingService.Format(document);
-            Logger.Instance.Debug("Done Format");
             return VSConstants.S_OK;
         }
 
@@ -73,7 +68,7 @@ namespace CSharpier.VisualStudio
             return VSConstants.S_OK;
         }
 
-        private Document FindDocument(uint docCookie)
+        private Document? FindDocument(uint docCookie)
         {
             try
             {
@@ -81,12 +76,11 @@ namespace CSharpier.VisualStudio
                 var documentInfo = this.runningDocumentTable.GetDocumentInfo(docCookie);
                 var documentPath = documentInfo.Moniker;
 
-                if (this.dte.ActiveDocument.FullName == documentPath)
-                {
-                    return this.dte.ActiveDocument;
-                }
+                Logger.Instance.Debug("Trying to find - " + documentPath);
 
-                return this.dte.Documents.Item(documentPath);
+                return this.dte.ActiveDocument?.FullName == documentPath
+                    ? this.dte.ActiveDocument
+                    : this.dte.Documents?.Item(documentPath);
             }
             catch (Exception ex)
             {

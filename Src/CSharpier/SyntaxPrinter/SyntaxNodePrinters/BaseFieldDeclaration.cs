@@ -2,12 +2,12 @@ namespace CSharpier.SyntaxPrinter.SyntaxNodePrinters;
 
 internal static class BaseFieldDeclaration
 {
-    public static Doc Print(BaseFieldDeclarationSyntax node, FormattingContext context)
+    public static Doc Print(BaseFieldDeclarationSyntax node, PrintingContext context)
     {
         var docs = new List<Doc>
         {
             AttributeLists.Print(node, node.AttributeLists, context),
-            Modifiers.Print(node.Modifiers, context)
+            Modifiers.PrintSorted(node.Modifiers, context),
         };
         if (node is EventFieldDeclarationSyntax eventFieldDeclarationSyntax)
         {

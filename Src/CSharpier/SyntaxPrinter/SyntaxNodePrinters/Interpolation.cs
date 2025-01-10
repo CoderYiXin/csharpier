@@ -2,12 +2,12 @@ namespace CSharpier.SyntaxPrinter.SyntaxNodePrinters;
 
 internal static class Interpolation
 {
-    public static Doc Print(InterpolationSyntax node, FormattingContext context)
+    public static Doc Print(InterpolationSyntax node, PrintingContext context)
     {
         var docs = new List<Doc>
         {
             Token.Print(node.OpenBraceToken, context),
-            Node.Print(node.Expression, context)
+            Node.Print(node.Expression, context),
         };
         if (node.AlignmentClause != null)
         {

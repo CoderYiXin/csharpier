@@ -4,13 +4,13 @@ One way to test the changes in the build/* files
 - Edit those files at `C:\Users\[Username]\.nuget\packages\csharpier.msbuild\[VersionNumber]\build`
 - Ensure you revert those files and make the same changes to the files here.
 
-Another way to test
+Some automated tests exist
+- the validate PR GH action runs these
+- cd ./Tests/MsBuild
+- ./Run.ps1 - some of these don't seem to work well locally
 
-- Making any changes you want
-```powershell
-Import-Module (RepoRoot)/Shell/Init.ps1
-CSH-BuildPackages
-```
-- change the version in CSharpier.MSBuild.Test.csproj (until we update to 0.25.0 or higher), then it can be $(Version)
-- Running this from the root `docker build . -f ./Src/CSharpier.MsBuild.Test/Dockerfile`
-
+Other things that would be really really nice to automate
+- formats files in debug
+- formats files if told to in release
+- checks files if told to in debug
+- log levels

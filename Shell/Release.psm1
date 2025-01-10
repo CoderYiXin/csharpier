@@ -6,6 +6,10 @@ function CSH-Release {
 
     $previousVersionNumber
 
+    git checkout main
+    git pull
+    git checkout -b "release-$versionNumber"
+    
     $versionPropsPath = $PSScriptRoot + "/../Nuget/Build.props"
     $versionProps = [xml](Get-Content $versionPropsPath)
 
@@ -13,9 +17,6 @@ function CSH-Release {
     $versionProps.Project.PropertyGroup.Version = $versionNumber
     $versionProps.Save($versionPropsPath)
 
-    # checkout main
-    # pull
-    # create branch
     $changeLog = CSH-ChangeLog $previousVersionNumber $versionNumber
 
     $changeLogPath = ($PSScriptRoot + "/../CHANGELOG.md")
@@ -24,7 +25,7 @@ function CSH-Release {
 
     Set-Content -Encoding UTF8 -Path $changeLogPath -Value ($changeLog + $changeLogValue)
 
-    foreach ($file in Get-ChildItem ($PSScriptRoot + "/../Docs") -Filter "*.md")
+    foreach ($file in Get-ChildItem ($PSScriptRoot + "/../docs") -Filter "*.md")
     {
         Copy-Item $file.FullName ($PSScriptRoot + "/../Src/Website/docs/" + $file.Name)
     }

@@ -2,13 +2,13 @@ namespace CSharpier.SyntaxPrinter.SyntaxNodePrinters;
 
 internal static class SwitchSection
 {
-    public static Doc Print(SwitchSectionSyntax node, FormattingContext context)
+    public static Doc Print(SwitchSectionSyntax node, PrintingContext context)
     {
         var docs = new List<Doc>
         {
-            Doc.Join(Doc.HardLine, node.Labels.Select(o => Node.Print(o, context)))
+            Doc.Join(Doc.HardLine, node.Labels.Select(o => Node.Print(o, context))),
         };
-        if (node.Statements.Count == 1 && node.Statements[0] is BlockSyntax blockSyntax)
+        if (node.Statements is [BlockSyntax blockSyntax])
         {
             docs.Add(Block.Print(blockSyntax, context));
         }
@@ -16,7 +16,7 @@ internal static class SwitchSection
         {
             docs.Add(
                 Doc.Indent(
-                    Doc.HardLine,
+                    node.Statements.First() is BlockSyntax ? Doc.Null : Doc.HardLine,
                     Doc.Join(
                         Doc.HardLine,
                         node.Statements.Select(o => Node.Print(o, context)).ToArray()

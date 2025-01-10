@@ -8,6 +8,7 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <projectService serviceImplementation="com.intellij.csharpier.CSharpierProcessProvider"/>
+        <projectService serviceImplementation="com.intellij.csharpier.DotNetProvider"/>
         <projectService serviceImplementation="com.intellij.csharpier.FormattingService"/>
         <projectService serviceImplementation="com.intellij.csharpier.CSharpierSettings"/>
         <projectService serviceImplementation="com.intellij.csharpier.InstallerService"/>
@@ -26,7 +27,7 @@
         </action>
     </actions>
     <applicationListeners>
-      <listener class="com.intellij.csharpier.ReformatWithCSharpierOnSave"
-                topic="com.intellij.openapi.actionSystem.ex.AnActionListener" />
+      <listener class="com.intellij.csharpier.ReformatWithCSharpierOnSaveListener"
+                topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
     </applicationListeners>
 </idea-plugin>

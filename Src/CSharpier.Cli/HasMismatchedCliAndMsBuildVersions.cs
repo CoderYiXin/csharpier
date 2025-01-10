@@ -5,16 +5,16 @@ using Microsoft.Extensions.Logging;
 
 namespace CSharpier.Cli;
 
-public static class HasMismatchedCliAndMsBuildVersions
+internal static class HasMismatchedCliAndMsBuildVersions
 {
     public static bool Check(string directoryName, IFileSystem fileSystem, ILogger logger)
     {
-        var csProjPaths = fileSystem.Directory
-            .EnumerateFiles(directoryName, "*.csproj", SearchOption.AllDirectories)
+        var csProjPaths = fileSystem
+            .Directory.EnumerateFiles(directoryName, "*.csproj", SearchOption.AllDirectories)
             .ToArray();
 
-        var versionOfDotnetTool = typeof(CommandLineFormatter).Assembly
-            .GetName()
+        var versionOfDotnetTool = typeof(CommandLineFormatter)
+            .Assembly.GetName()
             .Version!.ToString(3);
 
         string? GetPackagesVersion(string pathToCsProj)
@@ -78,6 +78,12 @@ public static class HasMismatchedCliAndMsBuildVersions
             }
 
             var versionOfMsBuildPackage = csharpierMsBuildElement.Attribute("Version")?.Value;
+            if (versionOfMsBuildPackage == "0.0.1")
+            {
+                // csharpier uses 0.0.1 as a placeholder in some tests, just ignore it
+                continue;
+            }
+
             if (versionOfMsBuildPackage == null)
             {
                 versionOfMsBuildPackage = GetPackagesVersion(pathToCsProj);

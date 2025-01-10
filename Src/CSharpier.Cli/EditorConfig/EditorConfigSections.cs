@@ -9,11 +9,21 @@ internal class EditorConfigSections
     public required string DirectoryName { get; init; }
     public required IReadOnlyCollection<Section> SectionsIncludingParentFiles { get; init; }
 
-    public PrinterOptions ConvertToPrinterOptions(string filePath)
+    public PrinterOptions? ConvertToPrinterOptions(string filePath)
     {
         var sections = this.SectionsIncludingParentFiles.Where(o => o.IsMatch(filePath)).ToList();
         var resolvedConfiguration = new ResolvedConfiguration(sections);
-        var printerOptions = new PrinterOptions();
+
+        var formatter =
+            resolvedConfiguration.Formatter
+            ?? (filePath.EndsWith(".cs") || filePath.EndsWith(".csx") ? "csharp" : null);
+
+        if (formatter == null)
+        {
+            return null;
+        }
+
+        var printerOptions = new PrinterOptions { Formatter = formatter };
 
         if (resolvedConfiguration.MaxLineLength is { } maxLineLength)
         {
@@ -27,11 +37,12 @@ internal class EditorConfigSections
 
         if (printerOptions.UseTabs)
         {
-            printerOptions.TabWidth = resolvedConfiguration.TabWidth ?? printerOptions.TabWidth;
+            printerOptions.IndentSize = resolvedConfiguration.TabWidth ?? printerOptions.IndentSize;
         }
         else
         {
-            printerOptions.TabWidth = resolvedConfiguration.IndentSize ?? printerOptions.TabWidth;
+            printerOptions.IndentSize =
+                resolvedConfiguration.IndentSize ?? printerOptions.IndentSize;
         }
 
         if (resolvedConfiguration.EndOfLine is { } endOfLine)
@@ -49,6 +60,7 @@ internal class EditorConfigSections
         public int? TabWidth { get; }
         public int? MaxLineLength { get; }
         public EndOfLine? EndOfLine { get; }
+        public string? Formatter { get; }
 
         public ResolvedConfiguration(List<Section> sections)
         {
@@ -93,6 +105,8 @@ internal class EditorConfigSections
             {
                 this.EndOfLine = result;
             }
+
+            this.Formatter = sections.LastOrDefault(o => o.Formatter is not null)?.Formatter;
         }
     }
 }

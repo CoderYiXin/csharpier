@@ -2,10 +2,12 @@ namespace CSharpier.Formatters.CSharp;
 
 internal class PreprocessorSymbols : CSharpSyntaxWalker
 {
-    private readonly List<string[]> symbolSets = new();
-    private readonly HashSet<string> squashedSymbolSets = new();
-    private SymbolContext CurrentContext =
-        new() { ParentContext = new SymbolContext { ParentContext = null! } };
+    private readonly List<string[]> symbolSets = [];
+    private readonly HashSet<string> squashedSymbolSets = [];
+    private SymbolContext CurrentContext = new()
+    {
+        ParentContext = new SymbolContext { ParentContext = null! },
+    };
 
     private PreprocessorSymbols()
         : base(SyntaxWalkerDepth.Trivia) { }
@@ -35,13 +37,12 @@ internal class PreprocessorSymbols : CSharpSyntaxWalker
         }
 
         foreach (
-            var syntaxTrivia in token.LeadingTrivia.Where(
-                syntaxTrivia =>
-                    syntaxTrivia.RawSyntaxKind()
-                        is SyntaxKind.IfDirectiveTrivia
-                            or SyntaxKind.ElifDirectiveTrivia
-                            or SyntaxKind.ElseDirectiveTrivia
-                            or SyntaxKind.EndIfDirectiveTrivia
+            var syntaxTrivia in token.LeadingTrivia.Where(syntaxTrivia =>
+                syntaxTrivia.RawSyntaxKind()
+                    is SyntaxKind.IfDirectiveTrivia
+                        or SyntaxKind.ElifDirectiveTrivia
+                        or SyntaxKind.ElseDirectiveTrivia
+                        or SyntaxKind.EndIfDirectiveTrivia
             )
         )
         {
@@ -65,15 +66,15 @@ internal class PreprocessorSymbols : CSharpSyntaxWalker
 
     public override void VisitElseDirectiveTrivia(ElseDirectiveTriviaSyntax node)
     {
-        var allParameters = this.CurrentContext.booleanExpressions
-            .SelectMany(o => o.Parameters)
+        var allParameters = this
+            .CurrentContext.booleanExpressions.SelectMany(o => o.Parameters)
             .Distinct()
             .ToList();
         var combinations = GenerateCombinations(allParameters);
         var functions = this.CurrentContext.booleanExpressions.Select(o => o.Function).ToList();
 
-        var combination = combinations.FirstOrDefault(
-            combination => functions.All(o => !o(combination))
+        var combination = combinations.FirstOrDefault(combination =>
+            functions.All(o => !o(combination))
         );
 
         if (combination == null)
@@ -87,7 +88,7 @@ internal class PreprocessorSymbols : CSharpSyntaxWalker
             new BooleanExpression
             {
                 Parameters = combination.Where(o => o.Value).Select(o => o.Key).ToList(),
-                Function = o => o.All(p => p.Value)
+                Function = o => o.All(p => p.Value),
             }
         );
     }
@@ -130,12 +131,12 @@ internal class PreprocessorSymbols : CSharpSyntaxWalker
         // but the else works a bit different
         var combinations = GenerateCombinations(booleanExpression.Parameters);
 
-        var possibleParameters = combinations.FirstOrDefault(
-            possibleParameters => booleanExpression.Function(possibleParameters)
+        var possibleParameters = combinations.FirstOrDefault(possibleParameters =>
+            booleanExpression.Function(possibleParameters)
         );
 
         return possibleParameters == null
-            ? Array.Empty<string>()
+            ? []
             : possibleParameters.Where(o => o.Value).Select(o => o.Key).OrderBy(o => o).ToArray();
     }
 
@@ -153,7 +154,7 @@ internal class PreprocessorSymbols : CSharpSyntaxWalker
     {
         if (!parameterNames.Any())
         {
-            return new List<Dictionary<string, bool>> { new() };
+            return [new()];
         }
 
         var subCombinations = GenerateCombinations(parameterNames.Skip(1).ToList());
@@ -163,11 +164,11 @@ internal class PreprocessorSymbols : CSharpSyntaxWalker
         {
             var falseCombination = new Dictionary<string, bool>(subCombination)
             {
-                { parameterNames[0], false }
+                { parameterNames[0], false },
             };
             var trueCombination = new Dictionary<string, bool>(subCombination)
             {
-                { parameterNames[0], true }
+                { parameterNames[0], true },
             };
 
             combinations.Add(falseCombination);
@@ -180,6 +181,6 @@ internal class PreprocessorSymbols : CSharpSyntaxWalker
     private class SymbolContext
     {
         public required SymbolContext ParentContext { get; init; }
-        public List<BooleanExpression> booleanExpressions { get; } = new();
+        public List<BooleanExpression> booleanExpressions { get; } = [];
     }
 }

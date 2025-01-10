@@ -2,13 +2,19 @@ namespace CSharpier.SyntaxPrinter.SyntaxNodePrinters;
 
 internal static class ListPattern
 {
-    public static Doc Print(ListPatternSyntax node, FormattingContext context)
+    public static Doc Print(ListPatternSyntax node, PrintingContext context)
     {
         return Doc.Group(
             Token.Print(node.OpenBracketToken, context),
             Doc.Indent(
                 Doc.SoftLine,
-                SeparatedSyntaxList.Print(node.Patterns, Node.Print, Doc.Line, context)
+                SeparatedSyntaxList.PrintWithTrailingComma(
+                    node.Patterns,
+                    Node.Print,
+                    Doc.Line,
+                    context,
+                    node.CloseBracketToken
+                )
             ),
             Doc.SoftLine,
             Token.Print(node.CloseBracketToken, context),

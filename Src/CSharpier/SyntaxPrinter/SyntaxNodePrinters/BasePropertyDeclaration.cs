@@ -2,7 +2,7 @@ namespace CSharpier.SyntaxPrinter.SyntaxNodePrinters;
 
 internal static class BasePropertyDeclaration
 {
-    public static Doc Print(BasePropertyDeclarationSyntax node, FormattingContext context)
+    public static Doc Print(BasePropertyDeclarationSyntax node, PrintingContext context)
     {
         EqualsValueClauseSyntax? initializer = null;
         ExplicitInterfaceSpecifierSyntax? explicitInterfaceSpecifierSyntax = null;
@@ -43,7 +43,7 @@ internal static class BasePropertyDeclaration
         return Doc.Group(
             Doc.Concat(
                 Doc.Concat(docs),
-                Modifiers.Print(node.Modifiers, context),
+                Modifiers.PrintSorted(node.Modifiers, context),
                 eventKeyword,
                 Node.Print(node.Type, context),
                 " ",
@@ -64,7 +64,7 @@ internal static class BasePropertyDeclaration
     private static Doc Contents(
         BasePropertyDeclarationSyntax node,
         ArrowExpressionClauseSyntax? expressionBody,
-        FormattingContext context
+        PrintingContext context
     )
     {
         Doc contents = string.Empty;
@@ -72,12 +72,11 @@ internal static class BasePropertyDeclaration
         {
             Doc separator = " ";
             if (
-                node.AccessorList.Accessors.Any(
-                    o =>
-                        o.Body != null
-                        || o.ExpressionBody != null
-                        || o.Modifiers.Any()
-                        || o.AttributeLists.Any()
+                node.AccessorList.Accessors.Any(o =>
+                    o.Body != null
+                    || o.ExpressionBody != null
+                    || o.Modifiers.Any()
+                    || o.AttributeLists.Any()
                 )
             )
             {
@@ -89,8 +88,9 @@ internal static class BasePropertyDeclaration
                     separator,
                     Token.Print(node.AccessorList.OpenBraceToken, context),
                     Doc.Indent(
-                        node.AccessorList.Accessors
-                            .Select(o => PrintAccessorDeclarationSyntax(o, separator, context))
+                        node.AccessorList.Accessors.Select(o =>
+                                PrintAccessorDeclarationSyntax(o, separator, context)
+                            )
                             .ToArray()
                     ),
                     separator,
@@ -109,7 +109,7 @@ internal static class BasePropertyDeclaration
     private static Doc PrintAccessorDeclarationSyntax(
         AccessorDeclarationSyntax node,
         Doc separator,
-        FormattingContext context
+        PrintingContext context
     )
     {
         var docs = new List<Doc>();
@@ -123,7 +123,7 @@ internal static class BasePropertyDeclaration
         }
 
         docs.Add(AttributeLists.Print(node, node.AttributeLists, context));
-        docs.Add(Modifiers.Print(node.Modifiers, context));
+        docs.Add(Modifiers.PrintSorted(node.Modifiers, context));
         docs.Add(Token.Print(node.Keyword, context));
 
         if (node.Body != null)
