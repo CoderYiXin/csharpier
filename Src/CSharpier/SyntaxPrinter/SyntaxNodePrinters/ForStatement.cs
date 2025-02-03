@@ -2,7 +2,7 @@ namespace CSharpier.SyntaxPrinter.SyntaxNodePrinters;
 
 internal static class ForStatement
 {
-    public static Doc Print(ForStatementSyntax node, FormattingContext context)
+    public static Doc Print(ForStatementSyntax node, PrintingContext context)
     {
         var docs = new List<Doc>
         {
@@ -44,8 +44,8 @@ internal static class ForStatement
             node.Statement switch
             {
                 ForStatementSyntax => Doc.Group(Doc.HardLine, Node.Print(node.Statement, context)),
-                _ => OptionalBraces.Print(node.Statement, context)
-            }
+                _ => OptionalBraces.Print(node.Statement, context),
+            },
         };
 
         return Doc.Concat(docs);

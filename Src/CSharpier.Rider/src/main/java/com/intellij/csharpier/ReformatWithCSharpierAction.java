@@ -1,16 +1,20 @@
 package com.intellij.csharpier;
 
-import com.intellij.openapi.actionSystem.AnAction;
-import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.CommonDataKeys;
-import com.intellij.openapi.actionSystem.PlatformDataKeys;
+import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.project.Project;
+import com.intellij.psi.PsiDocumentManager;
 import org.jetbrains.annotations.NotNull;
 
 public class ReformatWithCSharpierAction extends AnAction {
+
     Logger logger = CSharpierLogger.getInstance();
+
+    @Override
+    public @NotNull ActionUpdateThread getActionUpdateThread() {
+        return ActionUpdateThread.BGT;
+    }
 
     @Override
     public void actionPerformed(@NotNull AnActionEvent e) {
@@ -28,7 +32,13 @@ public class ReformatWithCSharpierAction extends AnAction {
     @Override
     public void update(@NotNull AnActionEvent e) {
         var virtualFile = e.getData(PlatformDataKeys.VIRTUAL_FILE);
-        if (virtualFile == null) {
+
+        if (
+            virtualFile == null ||
+            // this update can get hit before CSharpierStartup is done
+            // so bail early if we didn't find dotnet yet, it should be there when startup is done
+            !DotNetProvider.getInstance(e.getProject()).foundDotNet()
+        ) {
             e.getPresentation().setVisible(false);
             return;
         }
@@ -40,10 +50,16 @@ public class ReformatWithCSharpierAction extends AnAction {
             return;
         }
 
-        var file = virtualFileString.substring(filePrefix.length());
-        var isCSharpFile = file.toLowerCase().endsWith(".cs");
-        e.getPresentation().setVisible(isCSharpFile);
-        var canFormat = isCSharpFile && FormattingService.getInstance(e.getProject()).getCanFormat(file, e.getProject());
+        var editor = e.getData(PlatformDataKeys.EDITOR);
+        var document = editor.getDocument();
+        var psiFile = PsiDocumentManager.getInstance(e.getProject()).getPsiFile(document);
+        var languageId = psiFile.getLanguage().getID();
+        var filePath = virtualFileString.substring(filePrefix.length());
+        this.logger.debug(languageId);
+
+        var canFormat =
+            FormattingService.isSupportedLanguageId(languageId) &&
+            FormattingService.getInstance(e.getProject()).getCanFormat(filePath, e.getProject());
         e.getPresentation().setEnabled(canFormat);
     }
 

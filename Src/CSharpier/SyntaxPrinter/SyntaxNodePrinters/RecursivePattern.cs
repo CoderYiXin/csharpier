@@ -2,21 +2,17 @@ namespace CSharpier.SyntaxPrinter.SyntaxNodePrinters;
 
 internal static class RecursivePattern
 {
-    public static Doc PrintWithOutType(RecursivePatternSyntax node, FormattingContext context)
+    public static Doc PrintWithOutType(RecursivePatternSyntax node, PrintingContext context)
     {
         return Print(node, false, context);
     }
 
-    public static Doc Print(RecursivePatternSyntax node, FormattingContext context)
+    public static Doc Print(RecursivePatternSyntax node, PrintingContext context)
     {
         return Print(node, true, context);
     }
 
-    private static Doc Print(
-        RecursivePatternSyntax node,
-        bool includeType,
-        FormattingContext context
-    )
+    private static Doc Print(RecursivePatternSyntax node, bool includeType, PrintingContext context)
     {
         var result = new List<Doc>();
         if (node.Type != null && includeType)
@@ -27,15 +23,17 @@ internal static class RecursivePattern
         if (node.PositionalPatternClause != null)
         {
             result.Add(
-                node.Parent is SwitchExpressionArmSyntax or CasePatternSwitchLabelSyntax
+                node.Parent
+                    is SwitchExpressionArmSyntax
+                        or CasePatternSwitchLabelSyntax
+                        or BinaryPatternSyntax
+                        {
+                            Parent: SwitchExpressionArmSyntax or CasePatternSwitchLabelSyntax
+                        }
                     ? Doc.Null
                     : Doc.SoftLine,
-                Token.PrintLeadingTrivia(node.PositionalPatternClause.OpenParenToken, context),
                 Doc.Group(
-                    Token.PrintWithoutLeadingTrivia(
-                        node.PositionalPatternClause.OpenParenToken,
-                        context
-                    ),
+                    Token.Print(node.PositionalPatternClause.OpenParenToken, context),
                     Doc.Indent(
                         Doc.SoftLine,
                         SeparatedSyntaxList.Print(
@@ -73,18 +71,14 @@ internal static class RecursivePattern
             else
             {
                 result.Add(
-                    Token.PrintLeadingTrivia(node.PropertyPatternClause.OpenBraceToken, context),
                     Doc.Group(
                         node.Type != null
-                        && !node.PropertyPatternClause.OpenBraceToken.LeadingTrivia.Any(
-                            o => o.IsDirective || o.IsComment()
+                        && !node.PropertyPatternClause.OpenBraceToken.LeadingTrivia.Any(o =>
+                            o.IsDirective || o.IsComment()
                         )
                             ? Doc.Line
                             : Doc.Null,
-                        Token.PrintWithoutLeadingTrivia(
-                            node.PropertyPatternClause.OpenBraceToken,
-                            context
-                        ),
+                        Token.Print(node.PropertyPatternClause.OpenBraceToken, context),
                         Doc.Indent(
                             node.PropertyPatternClause.Subpatterns.Any() ? Doc.Line : Doc.Null,
                             SeparatedSyntaxList.Print(

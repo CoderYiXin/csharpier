@@ -1,4 +1,55 @@
-﻿## [1.4.7]
+﻿## [2.0.0]
+- Adding support for csharpier 1.0.0
+
+## [1.9.5]
+- Use working directory to install csharpier so it respects a projects NuGet.config
+
+## [1.9.4]
+- Fix so that extension works with older versions of VS, we don't want to require the latest
+
+## [1.9.3]
+- Remove eagerly warming csharpier at startup. Optimize right click menu so it doesn't have noticeable delay on initial file that is open at startup.
+
+## [1.9.1]
+- Fix bug if you open CSharpier options page without a solution loaded in VisualStudio
+
+## [1.9.0]
+- Configuration will hot reload: changes to `.vs/$(SolutionName)/v17/csharpier.json` will trigger a reload of the configuration in an opened Visual Studio instance.
+
+## [1.8.0]
+- Use dotnet tool list to find both local and global installs of csharpier.
+
+## [1.7.4]
+- Support for semver
+- Only use CSharpier Server on 0.29.0+
+
+## [1.7.3]
+- If CSharpier doesn't respond when trying to find a port, then try to find a port in extension
+- Add option to bypass csharpier server.
+
+## [1.7.2]
+- Fix bad code path when csharpier server failed to start
+
+## [1.7.1]
+- Fix issue with csharpier server not working when localhost resolved to IPv6 ::1
+
+## [1.7.0]
+- Use CSharpier Server for 0.28.0+
+
+## [1.5.2]
+- Experimental support for CSharpier Server
+
+## [1.5.1]
+- Fix for occasional NRE
+
+## [1.5.0]
+- Fix issues with using 0.26.X
+- Better error handling and logging
+
+## [1.4.8]
+- Handle version 0.26.0 and higher which include a +[commitHash] in the version number
+
+## [1.4.7]
 - Log exception when finding document fails but don't throw it.
 
 ## [1.4.6]

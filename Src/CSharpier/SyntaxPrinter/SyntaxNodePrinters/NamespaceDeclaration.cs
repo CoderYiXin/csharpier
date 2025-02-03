@@ -2,7 +2,7 @@ namespace CSharpier.SyntaxPrinter.SyntaxNodePrinters;
 
 internal static class NamespaceDeclaration
 {
-    public static Doc Print(NamespaceDeclarationSyntax node, FormattingContext context)
+    public static Doc Print(NamespaceDeclarationSyntax node, PrintingContext context)
     {
         var docs = new List<Doc>
         {
@@ -10,7 +10,7 @@ internal static class NamespaceDeclaration
             Modifiers.Print(node.Modifiers, context),
             Token.Print(node.NamespaceKeyword, context),
             " ",
-            Node.Print(node.Name, context)
+            Node.Print(node.Name, context),
         };
 
         var innerDocs = new List<Doc>();

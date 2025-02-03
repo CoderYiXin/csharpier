@@ -8,11 +8,7 @@ jobs:
     name: test
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: |
-            7.0.304
-            6.0.300
+      - uses: actions/setup-dotnet@v3
       - run: >
           dotnet test Src/CSharpier.Tests/CSharpier.Tests.csproj
           --configuration Release
@@ -29,23 +25,19 @@ jobs:
       NUGET_KEY: ${{secrets.NUGET_API_KEY}}
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: |
-            7.0.304
-            6.0.300
+      - uses: actions/setup-dotnet@v3
       - name: Publish CSharpier.Core library on version change
-        uses: alirezanet/publish-nuget@v3.0.4
+        uses: alirezanet/publish-nuget@v3.1.0
         with:
           PROJECT_FILE_PATH: Src/CSharpier/CSharpier.csproj
           TAG_FORMAT: "*"
       - name: Publish CSharpie dotnet tool on version change
-        uses: alirezanet/publish-nuget@v3.0.4
+        uses: alirezanet/publish-nuget@v3.1.0
         with:
           PROJECT_FILE_PATH: Src/CSharpier.Cli/CSharpier.Cli.csproj
           TAG_FORMAT: "*"
       - name: Publish CSharpier.MsBuild library on version change
-        uses: alirezanet/publish-nuget@v3.0.4
+        uses: alirezanet/publish-nuget@v3.1.0
         with:
           PROJECT_FILE_PATH: Src/CSharpier.MsBuild/CSharpier.MsBuild.csproj
           TAG_FORMAT: "*"

@@ -1,8 +1,9 @@
-using System.Text;
-using CSharpier.Cli.Options;
 using System.Diagnostics;
 using System.IO.Abstractions;
+using System.Text;
+using CSharpier.Cli.Options;
 using CSharpier.Utilities;
+using Microsoft.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 
 namespace CSharpier.Cli;
@@ -24,7 +25,17 @@ internal static class CommandLineFormatter
 
             if (commandLineOptions.StandardInFileContents != null)
             {
-                var filePath = commandLineOptions.DirectoryOrFilePaths[0];
+                var directoryOrFilePath = commandLineOptions.DirectoryOrFilePaths[0];
+                var directoryPath = fileSystem.Directory.Exists(directoryOrFilePath)
+                    ? directoryOrFilePath
+                    : fileSystem.Path.GetDirectoryName(directoryOrFilePath);
+                var filePath =
+                    directoryOrFilePath != directoryPath
+                        ? directoryOrFilePath
+                        : Path.Combine(directoryPath, "StdIn.cs");
+
+                ArgumentNullException.ThrowIfNull(directoryPath);
+
                 var fileToFormatInfo = FileToFormatInfo.Create(
                     filePath,
                     commandLineOptions.StandardInFileContents,
@@ -32,16 +43,19 @@ internal static class CommandLineFormatter
                 );
 
                 var optionsProvider = await OptionsProvider.Create(
-                    fileSystem.Path.GetDirectoryName(filePath),
+                    directoryPath,
                     commandLineOptions.ConfigPath,
                     fileSystem,
                     logger,
-                    cancellationToken
+                    cancellationToken,
+                    limitConfigSearch: true
                 );
 
                 if (
-                    !GeneratedCodeUtilities.IsGeneratedCodeFile(filePath)
-                    && !optionsProvider.IsIgnored(filePath)
+                    (
+                        commandLineOptions.IncludeGenerated
+                        || !GeneratedCodeUtilities.IsGeneratedCodeFile(filePath)
+                    ) && !optionsProvider.IsIgnored(filePath)
                 )
                 {
                     var fileIssueLogger = new FileIssueLogger(
@@ -49,16 +63,22 @@ internal static class CommandLineFormatter
                         logger
                     );
 
-                    await PerformFormattingSteps(
-                        fileToFormatInfo,
-                        new StdOutFormattedFileWriter(console),
-                        commandLineFormatterResult,
-                        fileIssueLogger,
-                        optionsProvider.GetPrinterOptionsFor(filePath),
-                        commandLineOptions,
-                        FormattingCacheFactory.NullCache,
-                        cancellationToken
-                    );
+                    var printerOptions = optionsProvider.GetPrinterOptionsFor(filePath);
+                    if (printerOptions is not null)
+                    {
+                        printerOptions.IncludeGenerated = commandLineOptions.IncludeGenerated;
+
+                        await PerformFormattingSteps(
+                            fileToFormatInfo,
+                            new StdOutFormattedFileWriter(console),
+                            commandLineFormatterResult,
+                            fileIssueLogger,
+                            printerOptions,
+                            commandLineOptions,
+                            FormattingCacheFactory.NullCache,
+                            cancellationToken
+                        );
+                    }
                 }
             }
             else
@@ -136,7 +156,8 @@ internal static class CommandLineFormatter
             if (!isFile && !isDirectory)
             {
                 console.WriteErrorLine(
-                    "There was no file or directory found at " + directoryOrFilePath
+                    "There was no file or directory found at "
+                        + commandLineOptions.OriginalDirectoryOrFilePaths[x]
                 );
                 return 1;
             }
@@ -144,6 +165,8 @@ internal static class CommandLineFormatter
             var directoryName = isFile
                 ? fileSystem.Path.GetDirectoryName(directoryOrFilePath)
                 : directoryOrFilePath;
+
+            ArgumentNullException.ThrowIfNull(directoryName);
 
             var optionsProvider = await OptionsProvider.Create(
                 directoryName,
@@ -153,9 +176,9 @@ internal static class CommandLineFormatter
                 cancellationToken
             );
 
-            var originalDirectoryOrFile = commandLineOptions.OriginalDirectoryOrFilePaths[
-                x
-            ].Replace("\\", "/");
+            var originalDirectoryOrFile = commandLineOptions
+                .OriginalDirectoryOrFilePaths[x]
+                .Replace("\\", "/");
 
             var formattingCache = await FormattingCacheFactory.InitializeAsync(
                 commandLineOptions,
@@ -172,34 +195,50 @@ internal static class CommandLineFormatter
                 }
             }
 
-            async Task FormatFile(string actualFilePath, string originalFilePath)
+            async Task FormatFile(
+                string actualFilePath,
+                string originalFilePath,
+                bool warnForUnsupported = false
+            )
             {
-                var printerOptions = optionsProvider.GetPrinterOptionsFor(actualFilePath);
                 if (
-                    GeneratedCodeUtilities.IsGeneratedCodeFile(actualFilePath)
-                    || optionsProvider.IsIgnored(actualFilePath)
+                    (
+                        !commandLineOptions.IncludeGenerated
+                        && GeneratedCodeUtilities.IsGeneratedCodeFile(actualFilePath)
+                    ) || optionsProvider.IsIgnored(actualFilePath)
                 )
                 {
                     return;
                 }
 
-                await FormatPhysicalFile(
-                    actualFilePath,
-                    originalFilePath,
-                    fileSystem,
-                    logger,
-                    commandLineFormatterResult,
-                    writer,
-                    commandLineOptions,
-                    printerOptions,
-                    formattingCache,
-                    cancellationToken
-                );
+                var printerOptions = optionsProvider.GetPrinterOptionsFor(actualFilePath);
+
+                if (printerOptions is not null)
+                {
+                    printerOptions.IncludeGenerated = commandLineOptions.IncludeGenerated;
+                    await FormatPhysicalFile(
+                        actualFilePath,
+                        originalFilePath,
+                        fileSystem,
+                        logger,
+                        commandLineFormatterResult,
+                        writer,
+                        commandLineOptions,
+                        printerOptions,
+                        formattingCache,
+                        cancellationToken
+                    );
+                }
+                else if (warnForUnsupported)
+                {
+                    var fileIssueLogger = new FileIssueLogger(originalFilePath, logger);
+                    fileIssueLogger.WriteWarning("Is an unsupported file type.");
+                }
             }
 
             if (isFile)
             {
-                await FormatFile(directoryOrFilePath, originalDirectoryOrFile);
+                await FormatFile(directoryOrFilePath, originalDirectoryOrFile, true);
             }
             else if (isDirectory)
             {
@@ -215,8 +254,12 @@ internal static class CommandLineFormatter
                     return 1;
                 }
 
-                var tasks = fileSystem.Directory
-                    .EnumerateFiles(directoryOrFilePath, "*.cs", SearchOption.AllDirectories)
+                var tasks = fileSystem
+                    .Directory.EnumerateFiles(
+                        directoryOrFilePath,
+                        "*.*",
+                        SearchOption.AllDirectories
+                    )
                     .Select(o =>
                     {
                         var normalizedPath = o.Replace("\\", "/");
@@ -266,12 +309,6 @@ internal static class CommandLineFormatter
 
         var fileIssueLogger = new FileIssueLogger(originalFilePath, logger);
 
-        if (!actualFilePath.EndsWithIgnoreCase(".cs") && !actualFilePath.EndsWithIgnoreCase(".cst"))
-        {
-            fileIssueLogger.WriteWarning("Is an unsupported file type.");
-            return;
-        }
-
         logger.LogDebug(
             commandLineOptions.Check
                 ? $"Checking - {originalFilePath}"
@@ -296,7 +333,7 @@ internal static class CommandLineFormatter
     )
     {
         if (
-            (commandLineOptions.StandardInFileContents != null && result.FailedCompilation > 0)
+            (!commandLineOptions.CompilationErrorsAsWarnings && result.FailedCompilation > 0)
             || (commandLineOptions.Check && result.UnformattedFiles > 0)
             || result.FailedSyntaxTreeValidation > 0
             || result.ExceptionsFormatting > 0
@@ -344,12 +381,16 @@ internal static class CommandLineFormatter
 
         CodeFormatterResult codeFormattingResult;
 
+        var sourceCodeKind = Path.GetExtension(fileToFormatInfo.Path).EqualsIgnoreCase(".csx")
+            ? SourceCodeKind.Script
+            : SourceCodeKind.Regular;
+
         try
         {
-            // TODO xml find correct formatter
             codeFormattingResult = await CSharpFormatter.FormatAsync(
                 fileToFormatInfo.FileContents,
                 printerOptions,
+                sourceCodeKind,
                 cancellationToken
             );
         }
@@ -373,7 +414,7 @@ internal static class CommandLineFormatter
                 errorMessage.AppendLine(message.ToString());
             }
 
-            if (commandLineOptions.WriteStdout)
+            if (!commandLineOptions.CompilationErrorsAsWarnings)
             {
                 fileIssueLogger.WriteError(errorMessage.ToString());
             }
@@ -398,6 +439,9 @@ internal static class CommandLineFormatter
                 fileToFormatInfo.FileContents,
                 codeFormattingResult.Code,
                 codeFormattingResult.ReorderedModifiers,
+                codeFormattingResult.ReorderedUsingsWithDisabledText,
+                codeFormattingResult.MovedTrailingTrivia,
+                sourceCodeKind,
                 cancellationToken
             );
 

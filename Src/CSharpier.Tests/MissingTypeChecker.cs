@@ -28,8 +28,8 @@ public class MissingTypeChecker
             .Select(o => Path.GetFileNameWithoutExtension(o) + "Syntax")
             .ToList();
 
-        var syntaxNodeTypes = typeof(CompilationUnitSyntax).Assembly
-            .GetTypes()
+        var syntaxNodeTypes = typeof(CompilationUnitSyntax)
+            .Assembly.GetTypes()
             .Where(o => !o.IsAbstract && typeof(CSharpSyntaxNode).IsAssignableFrom(o))
             .ToList();
 
@@ -71,48 +71,47 @@ public class MissingTypeChecker
     }
 
     private readonly HashSet<string> ignored =
-        new()
-        {
-            "AccessorDeclarationSyntax",
-            "AccessorListSyntax",
-            "AttributeArgumentListSyntax",
-            "AttributeArgumentSyntax",
-            "AttributeSyntax",
-            "AttributeTargetSpecifierSyntax",
-            "BaseListSyntax",
-            "CatchDeclarationSyntax",
-            "CatchFilterClauseSyntax",
-            "ConstructorInitializerSyntax",
-            "ConversionOperatorMemberCrefSyntax",
-            "CrefBracketedParameterListSyntax",
-            "CrefParameterListSyntax",
-            "CrefParameterSyntax",
-            "ExplicitInterfaceSpecifierSyntax",
-            "FunctionPointerCallingConventionSyntax",
-            "FunctionPointerParameterListSyntax",
-            "FunctionPointerParameterSyntax",
-            "FunctionPointerUnmanagedCallingConventionListSyntax",
-            "FunctionPointerUnmanagedCallingConventionSyntax",
-            "IndexerMemberCrefSyntax",
-            "InterpolationAlignmentClauseSyntax",
-            "InterpolationFormatClauseSyntax",
-            "JoinIntoClauseSyntax",
-            "LineDirectivePositionSyntax",
-            "NameMemberCrefSyntax",
-            "OperatorMemberCrefSyntax",
-            "OrderingSyntax",
-            "PositionalPatternClauseSyntax",
-            "PropertyPatternClauseSyntax",
-            "QualifiedCrefSyntax",
-            "SubpatternSyntax",
-            "SwitchExpressionArmSyntax",
-            "TypeCrefSyntax",
-            "XmlCrefAttributeSyntax",
-            "XmlElementEndTagSyntax",
-            "XmlElementStartTagSyntax",
-            "XmlNameAttributeSyntax",
-            "XmlNameSyntax",
-            "XmlPrefixSyntax",
-            "XmlTextAttributeSyntax"
-        };
+    [
+        "AccessorDeclarationSyntax",
+        "AccessorListSyntax",
+        "AttributeArgumentListSyntax",
+        "AttributeArgumentSyntax",
+        "AttributeSyntax",
+        "AttributeTargetSpecifierSyntax",
+        "BaseListSyntax",
+        "CatchDeclarationSyntax",
+        "CatchFilterClauseSyntax",
+        "ConstructorInitializerSyntax",
+        "ConversionOperatorMemberCrefSyntax",
+        "CrefBracketedParameterListSyntax",
+        "CrefParameterListSyntax",
+        "CrefParameterSyntax",
+        "ExplicitInterfaceSpecifierSyntax",
+        "FunctionPointerCallingConventionSyntax",
+        "FunctionPointerParameterListSyntax",
+        "FunctionPointerParameterSyntax",
+        "FunctionPointerUnmanagedCallingConventionListSyntax",
+        "FunctionPointerUnmanagedCallingConventionSyntax",
+        "IndexerMemberCrefSyntax",
+        "InterpolationAlignmentClauseSyntax",
+        "InterpolationFormatClauseSyntax",
+        "JoinIntoClauseSyntax",
+        "LineDirectivePositionSyntax",
+        "NameMemberCrefSyntax",
+        "OperatorMemberCrefSyntax",
+        "OrderingSyntax",
+        "PositionalPatternClauseSyntax",
+        "PropertyPatternClauseSyntax",
+        "QualifiedCrefSyntax",
+        "SubpatternSyntax",
+        "SwitchExpressionArmSyntax",
+        "TypeCrefSyntax",
+        "XmlCrefAttributeSyntax",
+        "XmlElementEndTagSyntax",
+        "XmlElementStartTagSyntax",
+        "XmlNameAttributeSyntax",
+        "XmlNameSyntax",
+        "XmlPrefixSyntax",
+        "XmlTextAttributeSyntax",
+    ];
 }

@@ -1,7 +1,7 @@
-namespace CSharpier.Formatters.CSharp;
-
 using System.Collections.Concurrent;
 using System.Linq.Expressions;
+
+namespace CSharpier.Formatters.CSharp;
 
 internal abstract class BooleanExpressionParser
 {
@@ -211,7 +211,7 @@ internal abstract class BooleanExpressionParser
         return new BooleanExpression
         {
             Function = lambda.Compile(),
-            Parameters = variables.Select(o => o.Key).ToList()
+            Parameters = variables.Select(o => o.Key).ToList(),
         };
     }
 }
@@ -227,7 +227,7 @@ internal enum TokenType
     Equals,
     True,
     False,
-    NotEquals
+    NotEquals,
 }
 
 internal class Token

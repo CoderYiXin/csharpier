@@ -8,22 +8,32 @@ internal partial class SyntaxNodeComparer
     protected string NewSourceCode { get; }
     protected SyntaxTree OriginalSyntaxTree { get; }
     protected SyntaxTree NewSyntaxTree { get; }
-    protected bool IgnoreDisabledText { get; }
+    protected bool ReorderedModifiers { get; }
+    protected bool ReorderedUsingsWithDisabledText { get; }
+    protected bool MovedTrailingTrivia { get; }
 
     private static readonly CompareResult Equal = new();
 
     public SyntaxNodeComparer(
         string originalSourceCode,
         string newSourceCode,
-        bool ignoreDisabledText,
+        bool reorderedModifiers,
+        bool reorderedUsingsWithDisabledText,
+        bool movedTrailingTrivia,
+        SourceCodeKind sourceCodeKind,
         CancellationToken cancellationToken
     )
     {
         this.OriginalSourceCode = originalSourceCode;
         this.NewSourceCode = newSourceCode;
-        this.IgnoreDisabledText = ignoreDisabledText;
+        this.ReorderedModifiers = reorderedModifiers;
+        this.ReorderedUsingsWithDisabledText = reorderedUsingsWithDisabledText;
+        this.MovedTrailingTrivia = movedTrailingTrivia;
 
-        var cSharpParseOptions = new CSharpParseOptions(CSharpFormatter.LanguageVersion);
+        var cSharpParseOptions = new CSharpParseOptions(
+            CSharpFormatter.LanguageVersion,
+            kind: sourceCodeKind
+        );
         this.OriginalSyntaxTree = CSharpSyntaxTree.ParseText(
             this.OriginalSourceCode,
             cSharpParseOptions,
@@ -43,6 +53,14 @@ internal partial class SyntaxNodeComparer
 
     public async Task<string> CompareSourceAsync(CancellationToken cancellationToken)
     {
+        // this seems almost impossible to figure out with the current way this is written
+        // the usings could be in disabled text on namespaces, or on the modifiers of any base types.
+        // parts of the #if or #endif could be leading trivia in different places
+        if (this.ReorderedUsingsWithDisabledText)
+        {
+            return string.Empty;
+        }
+
         var result = this.AreEqualIgnoringWhitespace(
             await this.OriginalSyntaxTree.GetRootAsync(cancellationToken),
             await this.NewSyntaxTree.GetRootAsync(cancellationToken)
@@ -172,7 +190,7 @@ internal partial class SyntaxNodeComparer
         {
             IsInvalid = true,
             OriginalSpan = originalNode?.Span,
-            NewSpan = formattedNode?.Span
+            NewSpan = formattedNode?.Span,
         };
     }
 
@@ -182,7 +200,7 @@ internal partial class SyntaxNodeComparer
         {
             IsInvalid = true,
             OriginalSpan = originalSpan,
-            NewSpan = formattedSpan
+            NewSpan = formattedSpan,
         };
     }
 
@@ -198,11 +216,50 @@ internal partial class SyntaxNodeComparer
         SyntaxNode? formattedNode
     )
     {
+        if (
+            this.ReorderedModifiers
+            && (
+                (
+                    formattedNode is NamespaceDeclarationSyntax nd
+                    && nd.NamespaceKeyword == formattedToken
+                )
+                || (
+                    formattedNode is FileScopedNamespaceDeclarationSyntax fsnd
+                    && fsnd.NamespaceKeyword == formattedToken
+                )
+            )
+        )
+        {
+            if (formattedNode.GetLeadingTrivia().ToFullString().Contains("#endif"))
+            {
+                return Equal;
+            }
+        }
+
+        if (
+            originalToken.Parent is InterpolatedStringExpressionSyntax
+            && originalToken.Kind() is SyntaxKind.InterpolatedRawStringEndToken
+        )
+        {
+            // this detects if we added indentation when there was none, or removed all indentation when there was some
+            // and handles the case of changing /t to " "
+            var originalFirst = originalToken.ValueText.TrimStart(['\r', '\n'])[0];
+            var formattedFirst = formattedToken.ValueText.TrimStart(['\r', '\n'])[0];
+            if (
+                originalFirst != formattedFirst
+                && (originalFirst is not (' ' or '\t') || formattedFirst is not (' ' or '\t'))
+            )
+            {
+                return NotEqual(originalToken.Span, formattedNode!.Span);
+            }
+        }
         // when a verbatim string contains mismatched line endings they will become consistent
         // this validation will fail unless we also get them consistent here
         // adding a semi-complicated if check to determine when to do the string replacement
         // did not appear to have any performance benefits
-        if (originalToken.Text.Replace("\r", "") != formattedToken.Text.Replace("\r", ""))
+        else if (
+            originalToken.ValueText.Replace("\r", "") != formattedToken.ValueText.Replace("\r", "")
+        )
         {
             return NotEqual(
                 originalToken.RawSyntaxKind() == SyntaxKind.None
@@ -220,7 +277,9 @@ internal partial class SyntaxNodeComparer
             return result;
         }
 
-        var result2 = this.Compare(originalToken.TrailingTrivia, formattedToken.TrailingTrivia);
+        var result2 = this.MovedTrailingTrivia
+            ? Equal
+            : this.Compare(originalToken.TrailingTrivia, formattedToken.TrailingTrivia);
 
         return result2.IsInvalid ? result2 : Equal;
     }
@@ -229,7 +288,7 @@ internal partial class SyntaxNodeComparer
     {
         if (originalTrivia.RawSyntaxKind() is SyntaxKind.DisabledTextTrivia)
         {
-            if (this.IgnoreDisabledText)
+            if (this.ReorderedModifiers)
             {
                 return Equal;
             }
@@ -309,6 +368,42 @@ internal partial class SyntaxNodeComparer
         if (original != formatted)
         {
             return NotEqual(originalList.Span, formattedList.Span);
+        }
+
+        return Equal;
+    }
+
+    private CompareResult CompareUsingDirectives(
+        SyntaxList<UsingDirectiveSyntax> original,
+        SyntaxList<UsingDirectiveSyntax> formatted,
+        SyntaxNode originalParent,
+        SyntaxNode formattedParent
+    )
+    {
+        if (original.Count > 0 && original.First().GetLeadingTrivia().Any())
+        {
+            return Equal;
+        }
+
+        if (original.Count != formatted.Count)
+        {
+            return NotEqual(originalParent, formattedParent);
+        }
+
+        var sortedOriginal = original.OrderBy(o => o.ToFullString().Trim()).ToList();
+        var sortedFormatted = formatted.OrderBy(o => o.ToFullString().Trim()).ToList();
+
+        for (var x = 0; x < original.Count; x++)
+        {
+            var result = this.Compare(
+                (sortedOriginal[x], originalParent),
+                (sortedFormatted[x], formattedParent)
+            );
+
+            if (result.IsInvalid)
+            {
+                return result;
+            }
         }
 
         return Equal;

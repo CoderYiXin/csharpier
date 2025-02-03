@@ -14,26 +14,21 @@ namespace CSharpier.VisualStudio
 
         private readonly DTE dte;
         private readonly FormattingService formattingService;
+        private readonly CSharpierProcessProvider cSharpierProcessProvider;
 
-        public static ReformatWithCSharpier Instance { get; private set; } = default!;
+        public static ReformatWithCSharpier Instance { get; private set; } = null!;
 
         public static async Task InitializeAsync(CSharpierPackage package)
         {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(package.DisposalToken);
-
             var commandService =
                 await package.GetServiceAsync(typeof(IMenuCommandService)) as OleMenuCommandService;
 
             var dte = await package.GetServiceAsync(typeof(DTE)) as DTE;
 
-            Instance = new ReformatWithCSharpier(package, commandService!, dte!);
+            Instance = new ReformatWithCSharpier(commandService!, dte!);
         }
 
-        private ReformatWithCSharpier(
-            CSharpierPackage package,
-            IMenuCommandService commandService,
-            DTE dte
-        )
+        private ReformatWithCSharpier(IMenuCommandService commandService, DTE dte)
         {
             this.dte = dte;
 
@@ -41,7 +36,8 @@ namespace CSharpier.VisualStudio
             var menuItem = new OleMenuCommand(this.Execute, menuCommandId);
             menuItem.BeforeQueryStatus += this.QueryStatus;
             commandService.AddCommand(menuItem);
-            this.formattingService = FormattingService.GetInstance(package);
+            this.formattingService = FormattingService.GetInstance();
+            this.cSharpierProcessProvider = CSharpierProcessProvider.GetInstance();
         }
 
         private void QueryStatus(object sender, EventArgs e)
@@ -49,10 +45,24 @@ namespace CSharpier.VisualStudio
             ThreadHelper.ThrowIfNotOnUIThread();
             var button = (OleMenuCommand)sender;
 
-            button.Visible = this.dte.ActiveDocument.Name.EndsWith(".cs");
-            button.Enabled = this.formattingService.ProcessSupportsFormatting(
-                this.dte.ActiveDocument
+            var hasWarmedProcess = this.cSharpierProcessProvider.HasWarmedProcessFor(
+                this.dte.ActiveDocument.FullName
             );
+            button.Visible = FormattingService.IsSupportedLanguage(
+                this.dte.ActiveDocument.Language
+            );
+
+            if (!hasWarmedProcess)
+            {
+                // default to assuming they can format, that way if they do format we can start everything up properly
+                button.Enabled = true;
+            }
+            else
+            {
+                button.Enabled = this.formattingService.ProcessSupportsFormatting(
+                    this.dte.ActiveDocument.FullName
+                );
+            }
         }
 
         private void Execute(object sender, EventArgs e)

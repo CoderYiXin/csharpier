@@ -2,12 +2,20 @@ using System.IO.Abstractions;
 
 namespace CSharpier.Cli.EditorConfig;
 
+// TODO for a given directory find the config in it and going up til root
+// keep track of directories + their corresponding configs
+// if searching a new directory and we go up to a parent that contains the first config, use that
+// how many directories would we run into? enough to matter?
 internal static class EditorConfigParser
 {
     /// <summary>Finds all configs above the given directory as well as within the subtree of this directory</summary>
     public static List<EditorConfigSections> FindForDirectoryName(
         string directoryName,
-        IFileSystem fileSystem
+        IFileSystem fileSystem,
+        // not the best name, but I plan on rewriting this to not find all of the configs up front
+        // which will remove this parameter
+        bool limitEditorConfigSearch,
+        IgnoreFile ignoreFile
     )
     {
         if (directoryName is "")
@@ -15,9 +23,15 @@ internal static class EditorConfigParser
             return new List<EditorConfigSections>();
         }
 
-        var directoryInfo = fileSystem.DirectoryInfo.FromDirectoryName(directoryName);
+        var directoryInfo = fileSystem.DirectoryInfo.New(directoryName);
         var editorConfigFiles = directoryInfo
-            .EnumerateFiles(".editorconfig", SearchOption.AllDirectories)
+            .EnumerateFiles(
+                ".editorconfig",
+                limitEditorConfigSearch
+                    ? SearchOption.TopDirectoryOnly
+                    : SearchOption.AllDirectories
+            )
+            .Where(x => !ignoreFile.IsIgnored(x.FullName))
             .ToList();
 
         // already found any in this directory above
@@ -25,7 +39,7 @@ internal static class EditorConfigParser
 
         while (directoryInfo is not null)
         {
-            var file = fileSystem.FileInfo.FromFileName(
+            var file = fileSystem.FileInfo.New(
                 fileSystem.Path.Combine(directoryInfo.FullName, ".editorconfig")
             );
             if (file.Exists)
@@ -37,21 +51,24 @@ internal static class EditorConfigParser
         }
 
         return editorConfigFiles
-            .Select(
-                o =>
-                    new EditorConfigSections
-                    {
-                        DirectoryName = fileSystem.Path.GetDirectoryName(o.FullName),
-                        SectionsIncludingParentFiles = FindSections(o.FullName, fileSystem)
-                    }
-            )
+            .Select(o =>
+            {
+                var dirName = fileSystem.Path.GetDirectoryName(o.FullName);
+                ArgumentNullException.ThrowIfNull(dirName);
+
+                return new EditorConfigSections
+                {
+                    DirectoryName = dirName,
+                    SectionsIncludingParentFiles = FindSections(o.FullName, fileSystem),
+                };
+            })
             .OrderByDescending(o => o.DirectoryName.Length)
             .ToList();
     }
 
     private static List<Section> FindSections(string filePath, IFileSystem fileSystem)
     {
-        return ParseConfigFiles(fileSystem.Path.GetDirectoryName(filePath), fileSystem)
+        return ParseConfigFiles(fileSystem.Path.GetDirectoryName(filePath)!, fileSystem)
             .Reverse()
             .SelectMany(configFile => configFile.Sections)
             .ToList();
@@ -62,7 +79,7 @@ internal static class EditorConfigParser
         IFileSystem fileSystem
     )
     {
-        var directory = fileSystem.DirectoryInfo.FromDirectoryName(directoryPath);
+        var directory = fileSystem.DirectoryInfo.New(directoryPath);
         while (directory != null)
         {
             var potentialPath = fileSystem.Path.Combine(directory.FullName, ".editorconfig");
@@ -70,7 +87,6 @@ internal static class EditorConfigParser
             {
                 var configFile = ConfigFileParser.Parse(potentialPath, fileSystem);
 
-                DebugLogger.Log(potentialPath);
                 yield return configFile;
                 if (configFile.IsRoot)
                 {

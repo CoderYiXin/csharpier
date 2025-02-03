@@ -23,14 +23,9 @@ internal class AlignType : IIndentType
     public int Width { get; init; }
 }
 
-internal class Indenter
+internal class Indenter(PrinterOptions printerOptions)
 {
-    protected readonly PrinterOptions PrinterOptions;
-
-    public Indenter(PrinterOptions printerOptions)
-    {
-        this.PrinterOptions = printerOptions;
-    }
+    protected readonly PrinterOptions PrinterOptions = printerOptions;
 
     public static Indent GenerateRoot()
     {
@@ -49,15 +44,15 @@ internal class Indenter
             return new Indent
             {
                 Value = indent.Value + "\t",
-                Length = indent.Length + this.PrinterOptions.TabWidth
+                Length = indent.Length + this.PrinterOptions.IndentSize,
             };
         }
         else
         {
             return new Indent
             {
-                Value = indent.Value + new string(' ', this.PrinterOptions.TabWidth),
-                Length = indent.Length + this.PrinterOptions.TabWidth
+                Value = indent.Value + new string(' ', this.PrinterOptions.IndentSize),
+                Length = indent.Length + this.PrinterOptions.IndentSize,
             };
         }
     }
@@ -73,7 +68,7 @@ internal class Indenter
             return new Indent
             {
                 Value = indent.Value + new string(' ', alignment),
-                Length = indent.Length + alignment
+                Length = indent.Length + alignment,
             };
         }
     }
@@ -88,7 +83,7 @@ internal class Indenter
         // if it doesn't exist yet, then all values on it are regular indents, not aligns
         if (indent.TypesForTabs == null)
         {
-            types = new List<IIndentType>();
+            types = [];
             for (var x = 0; x < indent.Value.Length; x++)
             {
                 types.Add(IndentType.Instance);
@@ -99,7 +94,7 @@ internal class Indenter
         else
         {
             var placeTab = false;
-            types = new List<IIndentType>(indent.TypesForTabs) { nextIndentType };
+            types = [.. indent.TypesForTabs, nextIndentType];
             for (var x = types.Count - 1; x >= 0; x--)
             {
                 if (types[x] == IndentType.Instance)
@@ -137,7 +132,7 @@ internal class Indenter
             else
             {
                 value.Append('\t');
-                length += this.PrinterOptions.TabWidth;
+                length += this.PrinterOptions.IndentSize;
             }
         }
 
@@ -145,7 +140,7 @@ internal class Indenter
         {
             Length = length,
             Value = value.ToString(),
-            TypesForTabs = types
+            TypesForTabs = types,
         };
     }
 }

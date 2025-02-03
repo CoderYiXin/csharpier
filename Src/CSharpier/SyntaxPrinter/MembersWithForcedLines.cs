@@ -1,15 +1,14 @@
 using System.Collections.Immutable;
+using System.Text;
 
 namespace CSharpier.SyntaxPrinter;
-
-using System.Text;
 
 internal static class MembersWithForcedLines
 {
     public static List<Doc> Print<T>(
         CSharpSyntaxNode node,
         IReadOnlyList<T> members,
-        FormattingContext context,
+        PrintingContext context,
         bool skipFirstHardLine = false
     )
         where T : MemberDeclarationSyntax
@@ -19,7 +18,7 @@ internal static class MembersWithForcedLines
         {
             result.Add(Doc.HardLine);
         }
-        ;
+
         var unFormattedCode = new StringBuilder();
         var printUnformatted = false;
         var lastMemberForcedBlankLine = false;
@@ -51,12 +50,45 @@ internal static class MembersWithForcedLines
                 continue;
             }
 
-            void AddSeparatorIfNeeded()
+            Doc GetSeparatorIfNeeded()
             {
-                if (members is SeparatedSyntaxList<T> list && memberIndex < list.SeparatorCount)
+                if (members is not SeparatedSyntaxList<T> list)
                 {
-                    result.Add(Token.Print(list.GetSeparator(memberIndex), context));
+                    return Doc.Null;
                 }
+
+                if (memberIndex < list.SeparatorCount)
+                {
+                    return Token.Print(list.GetSeparator(memberIndex), context);
+                }
+
+                if (
+                    node is EnumDeclarationSyntax enumDeclarationSyntax
+                    && member is EnumMemberDeclarationSyntax
+                )
+                {
+                    var firstTrailingComment = list[memberIndex]
+                        .GetTrailingTrivia()
+                        .FirstOrDefault(o => o.IsComment());
+
+                    if (firstTrailingComment != default)
+                    {
+                        context.WithTrailingComma(
+                            firstTrailingComment,
+                            TrailingComma.Print(
+                                enumDeclarationSyntax.CloseBraceToken,
+                                context,
+                                true
+                            )
+                        );
+                    }
+                    else
+                    {
+                        return TrailingComma.Print(enumDeclarationSyntax.CloseBraceToken, context);
+                    }
+                }
+
+                return Doc.Null;
             }
 
             var blankLineIsForced = (
@@ -78,11 +110,11 @@ internal static class MembersWithForcedLines
             if (
                 member is MethodDeclarationSyntax methodDeclaration
                 && node is ClassDeclarationSyntax classDeclaration
-                && classDeclaration.Modifiers.Any(
-                    o => o.RawSyntaxKind() is SyntaxKind.AbstractKeyword
+                && classDeclaration.Modifiers.Any(o =>
+                    o.RawSyntaxKind() is SyntaxKind.AbstractKeyword
                 )
-                && methodDeclaration.Modifiers.Any(
-                    o => o.RawSyntaxKind() is SyntaxKind.AbstractKeyword
+                && methodDeclaration.Modifiers.Any(o =>
+                    o.RawSyntaxKind() is SyntaxKind.AbstractKeyword
                 )
             )
             {
@@ -93,7 +125,8 @@ internal static class MembersWithForcedLines
             {
                 lastMemberForcedBlankLine = blankLineIsForced;
                 result.Add(Node.Print(member, context));
-                AddSeparatorIfNeeded();
+                result.AddIfNotNull(GetSeparatorIfNeeded());
+
                 continue;
             }
 
@@ -144,7 +177,9 @@ internal static class MembersWithForcedLines
                 result.Add(ExtraNewLines.Print(member));
             }
             else if (
-                addBlankLine && !triviaContainsEndIfOrRegion && !skipAddingLineBecauseIgnoreEnded
+                addBlankLine
+                && !triviaContainsEndIfOrRegion
+                && !skipAddingLineBecauseIgnoreEnded
             )
             {
                 result.Add(Doc.HardLine);
@@ -177,11 +212,13 @@ internal static class MembersWithForcedLines
                 )
             )
             {
-                context.NextTriviaNeedsLine = true;
+                context.State.NextTriviaNeedsLine = true;
             }
 
+            // this has a side effect (yuck) that fixes the trailing comma + trailing comment issue so we have to call it first
+            var separator = GetSeparatorIfNeeded();
             result.Add(Doc.HardLine, Node.Print(member, context));
-            AddSeparatorIfNeeded();
+            result.AddIfNotNull(separator);
 
             lastMemberForcedBlankLine = blankLineIsForced;
         }

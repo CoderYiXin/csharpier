@@ -5,11 +5,11 @@
     using System.IO;
     using System.Text;
     using System.Threading.Tasks;
-    using ThreadHelper = Microsoft.VisualStudio.Shell.ThreadHelper;
-    using AsyncServiceProvider = Microsoft.VisualStudio.Shell.AsyncServiceProvider;
     using Microsoft.VisualStudio.Shell.Interop;
     using Microsoft.VisualStudio.Threading;
     using Newtonsoft.Json;
+    using AsyncServiceProvider = Microsoft.VisualStudio.Shell.AsyncServiceProvider;
+    using ThreadHelper = Microsoft.VisualStudio.Shell.ThreadHelper;
 
     public class CSharpierOptions
     {
@@ -32,15 +32,37 @@
         [Description("Log Debug Messages - this option is saved globally to this computer")]
         public bool GlobalLogDebugMessages { get; set; }
 
+        [Category("CSharpier - Developer")]
+        [DisplayName("Directory of custom CSharpier executable")]
+        public string? CustomPath { get; set; }
+
+        [Category("CSharpier - Developer")]
+        [DisplayName("Override CSharpier Executable")]
+        public bool? UseCustomPath { get; set; }
+
+        [Category("CSharpier - Developer")]
+        [DisplayName("Disable CSharpier Server")]
+        [Description(
+            "Disable CSharpier Server - Use the legacy version of piping stdin to csharpier for formatting files."
+        )]
+        public bool DisableCSharpierServer { get; set; }
+
         protected void LoadFrom(CSharpierOptions newInstance)
         {
             this.SolutionRunOnSave = newInstance.SolutionRunOnSave;
             this.GlobalRunOnSave = newInstance.GlobalRunOnSave;
             this.GlobalLogDebugMessages = newInstance.GlobalLogDebugMessages;
+            this.CustomPath = newInstance.CustomPath;
+            this.UseCustomPath = newInstance.UseCustomPath;
+            this.DisableCSharpierServer = newInstance.DisableCSharpierServer;
         }
 
-        private static readonly AsyncLazy<CSharpierOptions> liveModel =
-            new(CreateAsync, ThreadHelper.JoinableTaskFactory);
+        private static readonly AsyncLazy<CSharpierOptions> liveModel = new(
+            CreateAsync,
+            ThreadHelper.JoinableTaskFactory
+        );
+
+        private static FileSystemWatcher? hotReloadWatcher;
 
         public static CSharpierOptions Instance
         {
@@ -57,12 +79,13 @@
         {
             var instance = new CSharpierOptions();
             await instance.LoadAsync();
+            await InitializeHotReloadWatcherAsync();
             return instance;
         }
 
         public void Load()
         {
-            ThreadHelper.JoinableTaskFactory.Run(LoadAsync);
+            ThreadHelper.JoinableTaskFactory.Run(this.LoadAsync);
         }
 
         private async Task LoadAsync()
@@ -96,7 +119,7 @@
             }
 
             await LoadOptionsFromFile(
-                this.GetSolutionOptionsFileNameAsync,
+                GetSolutionOptionsFileNameAsync,
                 o =>
                 {
                     newInstance.SolutionRunOnSave = o.RunOnSave;
@@ -109,6 +132,9 @@
                 {
                     newInstance.GlobalRunOnSave = o.RunOnSave;
                     newInstance.GlobalLogDebugMessages = o.LogDebugMessages;
+                    newInstance.CustomPath = o.CustomPath;
+                    newInstance.UseCustomPath = o.UseCustomPath;
+                    newInstance.DisableCSharpierServer = o.DisableCSharpierServer;
                 }
             );
 
@@ -117,7 +143,7 @@
 
         public void Save()
         {
-            ThreadHelper.JoinableTaskFactory.Run(SaveAsync);
+            ThreadHelper.JoinableTaskFactory.Run(this.SaveAsync);
         }
 
         public async Task SaveAsync()
@@ -152,8 +178,8 @@
             }
 
             await SaveOptions(
-                this.GetSolutionOptionsFileNameAsync,
-                new OptionsDto { RunOnSave = this.SolutionRunOnSave, }
+                GetSolutionOptionsFileNameAsync,
+                new OptionsDto { RunOnSave = this.SolutionRunOnSave }
             );
 
             await SaveOptions(
@@ -161,7 +187,10 @@
                 new OptionsDto
                 {
                     RunOnSave = this.GlobalRunOnSave,
-                    LogDebugMessages = this.GlobalLogDebugMessages
+                    LogDebugMessages = this.GlobalLogDebugMessages,
+                    CustomPath = this.CustomPath,
+                    UseCustomPath = this.UseCustomPath,
+                    DisableCSharpierServer = this.DisableCSharpierServer,
                 }
             );
         }
@@ -177,8 +206,9 @@
             );
         }
 
-        private async Task<string?> GetSolutionOptionsFileNameAsync()
+        private static async Task<string?> GetSolutionOptionsFileNameAsync()
         {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 #pragma warning disable VSSDK006
             var solution =
                 await AsyncServiceProvider.GlobalProvider.GetServiceAsync(typeof(SVsSolution))
@@ -187,14 +217,48 @@
             solution!.GetSolutionInfo(out _, out _, out var userOptsFile);
 
             return userOptsFile != null
-                ? Path.Combine(Path.GetDirectoryName(userOptsFile), "csharpier.json")
+                ? Path.Combine(Path.GetDirectoryName(userOptsFile)!, "csharpier.json")
                 : null;
+        }
+
+        private static async Task InitializeHotReloadWatcherAsync()
+        {
+            var filePath = await GetSolutionOptionsFileNameAsync();
+            if (filePath is null)
+            {
+                return;
+            }
+
+            hotReloadWatcher = new FileSystemWatcher(
+                Path.GetDirectoryName(filePath)!,
+                Path.GetFileName(filePath)
+            );
+
+            static void OnFileChanged(object sender, FileSystemEventArgs e)
+            {
+#pragma warning disable VSTHRD103 // Call async methods when in an async method
+                ThreadHelper.JoinableTaskFactory.Run(async () =>
+                {
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    await Instance.LoadAsync();
+                });
+#pragma warning restore
+            }
+
+            hotReloadWatcher.Changed += OnFileChanged;
+            hotReloadWatcher.Created += OnFileChanged;
+            hotReloadWatcher.Renamed += OnFileChanged;
+
+            hotReloadWatcher.EnableRaisingEvents = true;
         }
 
         private class OptionsDto
         {
             public bool? RunOnSave { get; set; }
             public bool LogDebugMessages { get; set; }
+            public string? CustomPath { get; set; }
+            public bool? UseCustomPath { get; set; }
+            public bool DisableCSharpierServer { get; set; }
         }
     }
 }

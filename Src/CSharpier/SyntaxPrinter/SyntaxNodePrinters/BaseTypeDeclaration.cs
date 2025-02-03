@@ -2,7 +2,7 @@ namespace CSharpier.SyntaxPrinter.SyntaxNodePrinters;
 
 internal static class BaseTypeDeclaration
 {
-    public static Doc Print(BaseTypeDeclarationSyntax node, FormattingContext context)
+    public static Doc Print(BaseTypeDeclarationSyntax node, PrintingContext context)
     {
         ParameterListSyntax? parameterList = null;
         TypeParameterListSyntax? typeParameterList = null;
@@ -35,6 +35,7 @@ internal static class BaseTypeDeclaration
             else if (node is StructDeclarationSyntax structDeclarationSyntax)
             {
                 keyword = structDeclarationSyntax.Keyword;
+                parameterList = structDeclarationSyntax.ParameterList;
             }
             else if (node is InterfaceDeclarationSyntax interfaceDeclarationSyntax)
             {
@@ -75,7 +76,7 @@ internal static class BaseTypeDeclaration
 
         if (node.Modifiers.Any())
         {
-            docs.Add(Modifiers.Print(node.Modifiers, context));
+            docs.Add(Modifiers.PrintSorted(node.Modifiers, context));
         }
 
         if (recordKeyword != null)
@@ -142,10 +143,8 @@ internal static class BaseTypeDeclaration
         }
         else if (node.OpenBraceToken.RawSyntaxKind() != SyntaxKind.None)
         {
-            Doc separator = node.CloseBraceToken.LeadingTrivia.Any(
-                o =>
-                    o.RawSyntaxKind()
-                        is not (SyntaxKind.WhitespaceTrivia or SyntaxKind.EndOfLineTrivia)
+            Doc separator = node.CloseBraceToken.LeadingTrivia.Any(o =>
+                o.RawSyntaxKind() is not (SyntaxKind.WhitespaceTrivia or SyntaxKind.EndOfLineTrivia)
             )
                 ? Doc.Line
                 : " ";

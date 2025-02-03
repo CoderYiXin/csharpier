@@ -2,7 +2,7 @@
   <Import Project="../../Nuget/Build.props" />
   <PropertyGroup>
     <PackageId>CSharpier.Core</PackageId>
-    <TargetFrameworks>net6.0;net7.0;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>net8.0;net9.0;netstandard2.0</TargetFrameworks>
     <RootNamespace>CSharpier</RootNamespace>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
     <AssemblyOriginatorKeyFile>../../Nuget/csharpier.snk</AssemblyOriginatorKeyFile>
@@ -37,15 +37,15 @@
     </AssemblyAttribute>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\CSharpier.Generators\CSharpier.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference
+      Include="..\CSharpier.Generators\CSharpier.Generators.csproj"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false"
+    />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\logo.png" Pack="true" PackagePath="">
       <Link>logo.png</Link>
     </None>
   </ItemGroup>
-  <Target Name="RestoreTools" BeforeTargets="Restore;CollectPackageReferences" Condition="'$(RESTORE_TOOLS)' != 0 and '$(IsCrossTargetingBuild)' == 'true'">
-    <Exec Command="dotnet tool restore" StandardOutputImportance="Low" StandardErrorImportance="High" />
-    <Exec Command="dotnet husky install" StandardOutputImportance="Low" StandardErrorImportance="High" WorkingDirectory="../../" />
-  </Target>
 </Project>

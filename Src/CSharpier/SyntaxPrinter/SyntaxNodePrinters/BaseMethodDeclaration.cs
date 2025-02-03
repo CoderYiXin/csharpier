@@ -1,10 +1,10 @@
-namespace CSharpier.SyntaxPrinter.SyntaxNodePrinters;
-
 using System.Text.RegularExpressions;
+
+namespace CSharpier.SyntaxPrinter.SyntaxNodePrinters;
 
 internal static class BaseMethodDeclaration
 {
-    public static Doc Print(CSharpSyntaxNode node, FormattingContext context)
+    public static Doc Print(CSharpSyntaxNode node, PrintingContext context)
     {
         SyntaxList<AttributeListSyntax>? attributeLists = null;
         SyntaxTokenList? modifiers = null;
@@ -78,7 +78,8 @@ internal static class BaseMethodDeclaration
 
             void PrintMethodUnformattedWithoutAttributes(SyntaxTriviaList syntaxTriviaList)
             {
-                var attributeStart = attributeLists.Value[0]
+                var attributeStart = attributeLists
+                    .Value[0]
                     .GetLeadingTrivia()
                     .First()
                     .GetLocation()
@@ -94,7 +95,11 @@ internal static class BaseMethodDeclaration
                     .Trim();
 
                 docs.Add(
-                    Regex.Replace(methodWithoutAttributes, @"\s*(\r\n?|\n)", context.LineEnding)
+                    Regex.Replace(
+                        methodWithoutAttributes,
+                        @"\s*(\r\n?|\n)",
+                        context.Options.LineEnding
+                    )
                 );
             }
 
@@ -116,7 +121,9 @@ internal static class BaseMethodDeclaration
         if (modifiers is { Count: > 0 })
         {
             docs.Add(Token.PrintLeadingTrivia(modifiers.Value[0], context));
-            declarationGroup.Add(Modifiers.PrintWithoutLeadingTrivia(modifiers.Value, context));
+            declarationGroup.Add(
+                Modifiers.PrintSorterWithoutLeadingTrivia(modifiers.Value, context)
+            );
         }
 
         if (returnType != null)
@@ -124,11 +131,11 @@ internal static class BaseMethodDeclaration
             if (modifiers is not { Count: > 0 })
             {
                 docs.Add(Token.PrintLeadingTrivia(returnType.GetLeadingTrivia(), context));
-                context.ShouldSkipNextLeadingTrivia = true;
+                context.State.SkipNextLeadingTrivia = true;
             }
 
             declarationGroup.Add(Node.Print(returnType, context), " ");
-            context.ShouldSkipNextLeadingTrivia = false;
+            context.State.SkipNextLeadingTrivia = false;
         }
 
         if (explicitInterfaceSpecifier != null)

@@ -2,6 +2,7 @@
 using System.Threading;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
+using Microsoft.CodeAnalysis;
 
 namespace CSharpier.Benchmarks;
 
@@ -21,6 +22,9 @@ public class Benchmarks
             this.code,
             this.code,
             false,
+            false,
+            false,
+            SourceCodeKind.Regular,
             CancellationToken.None
         );
         syntaxNodeComparer.CompareSource();

@@ -35,29 +35,18 @@ namespace CSharpier.VisualStudio
             await ReformatWithCSharpier.InitializeAsync(this);
             await InstallerService.InitializeAsync(this);
 
-            try
-            {
-#pragma warning disable VSSDK006
-                var dte = await this.GetServiceAsync(typeof(DTE)) as DTE;
-#pragma warning restore
-                if (dte?.ActiveDocument != null)
-                {
-                    CSharpierProcessProvider
-                        .GetInstance(this)
-                        .FindAndWarmProcess(dte.ActiveDocument.FullName);
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Instance.Error(ex);
-            }
-
-            SolutionEvents.OnAfterOpenSolution += HandleOpenSolution;
+            SolutionEvents.OnAfterOpenSolution += this.HandleOpenSolution;
         }
 
         private void HandleOpenSolution(object sender, OpenSolutionEventArgs e)
         {
             CSharpierOptions.Instance.Load();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            CSharpierProcessProvider.GetInstance().KillRunningProcesses();
+            base.Dispose(disposing);
         }
     }
 }

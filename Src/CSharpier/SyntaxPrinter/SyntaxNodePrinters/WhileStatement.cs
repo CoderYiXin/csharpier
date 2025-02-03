@@ -2,7 +2,7 @@ namespace CSharpier.SyntaxPrinter.SyntaxNodePrinters;
 
 internal static class WhileStatement
 {
-    public static Doc Print(WhileStatementSyntax node, FormattingContext context)
+    public static Doc Print(WhileStatementSyntax node, PrintingContext context)
     {
         var result = Doc.Concat(
             ExtraNewLines.Print(node),
@@ -18,9 +18,11 @@ internal static class WhileStatement
             ),
             node.Statement switch
             {
-                WhileStatementSyntax
-                    => Doc.Group(Doc.HardLine, Node.Print(node.Statement, context)),
-                _ => OptionalBraces.Print(node.Statement, context)
+                WhileStatementSyntax => Doc.Group(
+                    Doc.HardLine,
+                    Node.Print(node.Statement, context)
+                ),
+                _ => OptionalBraces.Print(node.Statement, context),
             }
         );
 

@@ -5,13 +5,13 @@ internal static class NamespaceLikePrinter
     public static void Print(
         BaseNamespaceDeclarationSyntax node,
         List<Doc> docs,
-        FormattingContext context
+        PrintingContext context
     )
     {
         Print(node, node.Externs, node.Usings, node.Members, docs, context);
     }
 
-    public static void Print(CompilationUnitSyntax node, List<Doc> docs, FormattingContext context)
+    public static void Print(CompilationUnitSyntax node, List<Doc> docs, PrintingContext context)
     {
         Print(node, node.Externs, node.Usings, node.Members, docs, context);
     }
@@ -22,7 +22,7 @@ internal static class NamespaceLikePrinter
         SyntaxList<UsingDirectiveSyntax> usings,
         SyntaxList<MemberDeclarationSyntax> members,
         List<Doc> docs,
-        FormattingContext context
+        PrintingContext context
     )
     {
         if (externs.Count > 0)
@@ -44,19 +44,7 @@ internal static class NamespaceLikePrinter
                 docs.Add(Doc.HardLine);
             }
 
-            docs.Add(
-                Doc.Join(
-                    Doc.HardLine,
-                    usings.Select(
-                        (o, i) =>
-                            UsingDirective.Print(
-                                o,
-                                context,
-                                printExtraLines: i != 0 || externs.Count != 0
-                            )
-                    )
-                )
-            );
+            docs.Add(UsingDirectives.PrintWithSorting(usings, context, externs.Count != 0));
         }
 
         var isCompilationUnitWithAttributes = false;
@@ -71,7 +59,8 @@ internal static class NamespaceLikePrinter
             if (externs.Any() || usings.Any())
             {
                 docs.Add(
-                    compilationUnitSyntax.AttributeLists[0]
+                    compilationUnitSyntax
+                        .AttributeLists[0]
                         .GetLeadingTrivia()
                         .Any(o => o.IsDirective)
                         ? ExtraNewLines.Print(compilationUnitSyntax.AttributeLists[0])
@@ -98,12 +87,12 @@ internal static class NamespaceLikePrinter
                 if (
                     (
                         node is not CompilationUnitSyntax { AttributeLists.Count: > 0 }
-                        && directiveTrivia.All(
-                            o => o.RawSyntaxKind() is SyntaxKind.EndIfDirectiveTrivia
+                        && directiveTrivia.All(o =>
+                            o.RawSyntaxKind() is SyntaxKind.EndIfDirectiveTrivia
                         )
                     )
-                    || !directiveTrivia.All(
-                        o => o.RawSyntaxKind() is SyntaxKind.EndIfDirectiveTrivia
+                    || !directiveTrivia.All(o =>
+                        o.RawSyntaxKind() is SyntaxKind.EndIfDirectiveTrivia
                     )
                 )
                 {

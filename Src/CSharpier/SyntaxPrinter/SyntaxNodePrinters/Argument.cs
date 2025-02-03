@@ -2,9 +2,14 @@ namespace CSharpier.SyntaxPrinter.SyntaxNodePrinters;
 
 internal static class Argument
 {
-    public static Doc Print(ArgumentSyntax node, FormattingContext context)
+    public static Doc Print(ArgumentSyntax node, PrintingContext context)
     {
-        var docs = new List<Doc>();
+        return Doc.Concat(PrintModifiers(node, context), Node.Print(node.Expression, context));
+    }
+
+    public static Doc PrintModifiers(ArgumentSyntax node, PrintingContext context)
+    {
+        var docs = new List<Doc>(2);
         if (node.NameColon != null)
         {
             docs.Add(BaseExpressionColon.Print(node.NameColon, context));
@@ -15,7 +20,6 @@ internal static class Argument
             docs.Add(Token.PrintWithSuffix(node.RefKindKeyword, " ", context));
         }
 
-        docs.Add(Node.Print(node.Expression, context));
         return Doc.Concat(docs);
     }
 }

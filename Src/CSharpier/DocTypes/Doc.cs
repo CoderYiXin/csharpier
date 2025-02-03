@@ -2,6 +2,11 @@ namespace CSharpier.DocTypes;
 
 internal abstract class Doc
 {
+    public string Print()
+    {
+        return DocPrinter.DocPrinter.Print(this, new PrinterOptions(), Environment.NewLine);
+    }
+
     public override string ToString()
     {
         return DocSerializer.Serialize(this);
@@ -18,12 +23,16 @@ internal abstract class Doc
 
     public static readonly HardLine HardLine = new();
 
+    public static readonly HardLineNoTrim HardLineNoTrim = new();
+
     public static readonly HardLine HardLineSkipBreakIfFirstInGroup = new(false, true);
 
     public static readonly HardLine HardLineIfNoPreviousLine = new(true);
 
-    public static readonly HardLine HardLineIfNoPreviousLineSkipBreakIfFirstInGroup =
-        new(true, true);
+    public static readonly HardLine HardLineIfNoPreviousLineSkipBreakIfFirstInGroup = new(
+        true,
+        true
+    );
 
     public static readonly LiteralLine LiteralLine = new();
 
@@ -153,7 +162,7 @@ internal abstract class Doc
 internal enum CommentType
 {
     SingleLine,
-    MultiLine
+    MultiLine,
 }
 
 interface IHasContents

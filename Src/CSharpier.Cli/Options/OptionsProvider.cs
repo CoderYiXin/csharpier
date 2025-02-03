@@ -1,31 +1,33 @@
-namespace CSharpier.Cli.Options;
-
 using System.IO.Abstractions;
 using System.Text.Json;
 using CSharpier.Cli.EditorConfig;
 using Microsoft.Extensions.Logging;
-using PrinterOptions = CSharpier.PrinterOptions;
+
+namespace CSharpier.Cli.Options;
 
 internal class OptionsProvider
 {
-    private readonly List<EditorConfigSections> editorConfigs;
+    private readonly IList<EditorConfigSections> editorConfigs;
     private readonly List<CSharpierConfigData> csharpierConfigs;
     private readonly IgnoreFile ignoreFile;
-    private readonly PrinterOptions? specifiedPrinterOptions;
+    private readonly ConfigurationFileOptions? specifiedConfigFile;
+    private readonly bool hasSpecificEditorConfig;
     private readonly IFileSystem fileSystem;
 
     private OptionsProvider(
-        List<EditorConfigSections> editorConfigs,
+        IList<EditorConfigSections> editorConfigs,
         List<CSharpierConfigData> csharpierConfigs,
         IgnoreFile ignoreFile,
-        PrinterOptions? specifiedPrinterOptions,
+        ConfigurationFileOptions? specifiedPrinterOptions,
+        bool hasSpecificEditorConfig,
         IFileSystem fileSystem
     )
     {
         this.editorConfigs = editorConfigs;
         this.csharpierConfigs = csharpierConfigs;
         this.ignoreFile = ignoreFile;
-        this.specifiedPrinterOptions = specifiedPrinterOptions;
+        this.specifiedConfigFile = specifiedPrinterOptions;
+        this.hasSpecificEditorConfig = hasSpecificEditorConfig;
         this.fileSystem = fileSystem;
     }
 
@@ -34,63 +36,110 @@ internal class OptionsProvider
         string? configPath,
         IFileSystem fileSystem,
         ILogger logger,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        bool limitConfigSearch = false
     )
     {
-        var specifiedPrinterOptions = configPath is not null
-            ? ConfigurationFileOptions.CreatePrinterOptionsFromPath(configPath, fileSystem, logger)
+        var csharpierConfigPath = configPath;
+        string? editorConfigPath = null;
+
+        if (configPath is not null && Path.GetFileName(configPath) == ".editorconfig")
+        {
+            csharpierConfigPath = null;
+            editorConfigPath = configPath;
+        }
+
+        var specifiedConfigFile = csharpierConfigPath is not null
+            ? ConfigFileParser.Create(csharpierConfigPath, fileSystem, logger)
             : null;
 
-        var csharpierConfigs = configPath is null
-            ? ConfigurationFileOptions.FindForDirectoryName(directoryName, fileSystem, logger)
-            : Array.Empty<CSharpierConfigData>().ToList();
+        var csharpierConfigs = csharpierConfigPath is null
+            ? ConfigFileParser.FindForDirectoryName(
+                directoryName,
+                fileSystem,
+                logger,
+                limitConfigSearch
+            )
+            : [];
 
-        var editorConfigSections = EditorConfigParser.FindForDirectoryName(
-            directoryName,
-            fileSystem
-        );
+        IList<EditorConfigSections>? editorConfigSections = null;
+
         var ignoreFile = await IgnoreFile.Create(directoryName, fileSystem, cancellationToken);
 
+        try
+        {
+            editorConfigSections = editorConfigPath is null
+                ? EditorConfigParser.FindForDirectoryName(
+                    directoryName,
+                    fileSystem,
+                    limitConfigSearch,
+                    ignoreFile
+                )
+                : EditorConfigParser.FindForDirectoryName(
+                    Path.GetDirectoryName(editorConfigPath)!,
+                    fileSystem,
+                    true,
+                    ignoreFile
+                );
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "Failure parsing editorconfig files for {DirectoryName}",
+                directoryName
+            );
+        }
+
         return new OptionsProvider(
-            editorConfigSections,
+            editorConfigSections ?? Array.Empty<EditorConfigSections>(),
             csharpierConfigs,
             ignoreFile,
-            specifiedPrinterOptions,
+            specifiedConfigFile,
+            hasSpecificEditorConfig: editorConfigPath is not null,
             fileSystem
         );
     }
 
-    public PrinterOptions GetPrinterOptionsFor(string filePath)
+    public PrinterOptions? GetPrinterOptionsFor(string filePath)
     {
-        if (this.specifiedPrinterOptions is not null)
+        if (this.specifiedConfigFile is not null)
         {
-            return this.specifiedPrinterOptions;
+            return this.specifiedConfigFile.ConvertToPrinterOptions(filePath);
+        }
+
+        if (this.hasSpecificEditorConfig)
+        {
+            return this.editorConfigs.First().ConvertToPrinterOptions(filePath, true);
         }
 
         var directoryName = this.fileSystem.Path.GetDirectoryName(filePath);
-        var resolvedEditorConfig = this.editorConfigs.FirstOrDefault(
-            o => directoryName.StartsWith(o.DirectoryName)
+
+        ArgumentNullException.ThrowIfNull(directoryName);
+
+        var resolvedEditorConfig = this.editorConfigs.FirstOrDefault(o =>
+            directoryName.StartsWith(o.DirectoryName)
         );
-        var resolvedCSharpierConfig = this.csharpierConfigs.FirstOrDefault(
-            o => directoryName.StartsWith(o.DirectoryName)
+        var resolvedCSharpierConfig = this.csharpierConfigs.FirstOrDefault(o =>
+            directoryName.StartsWith(o.DirectoryName)
         );
 
-        if (resolvedEditorConfig is null && resolvedCSharpierConfig is null)
+        if (resolvedCSharpierConfig is not null)
         {
-            return new PrinterOptions();
+            return resolvedCSharpierConfig.CSharpierConfig.ConvertToPrinterOptions(filePath);
         }
 
-        if (
-            (resolvedCSharpierConfig?.DirectoryName.Length ?? int.MinValue)
-            >= (resolvedEditorConfig?.DirectoryName.Length ?? int.MinValue)
-        )
+        if (resolvedEditorConfig is not null)
         {
-            return ConfigurationFileOptions.ConvertToPrinterOptions(
-                resolvedCSharpierConfig!.CSharpierConfig
-            );
+            return resolvedEditorConfig.ConvertToPrinterOptions(filePath, false);
         }
 
-        return resolvedEditorConfig!.ConvertToPrinterOptions(filePath);
+        if (filePath.EndsWith(".cs") || filePath.EndsWith(".csx"))
+        {
+            return new PrinterOptions { Formatter = "csharp" };
+        }
+
+        return null;
     }
 
     public bool IsIgnored(string actualFilePath)
@@ -103,9 +152,9 @@ internal class OptionsProvider
         return JsonSerializer.Serialize(
             new
             {
-                specified = this.specifiedPrinterOptions,
-                csharpierConfigs = this.csharpierConfigs,
-                editorConfigs = this.editorConfigs
+                specified = this.specifiedConfigFile,
+                this.csharpierConfigs,
+                this.editorConfigs,
             }
         );
     }
